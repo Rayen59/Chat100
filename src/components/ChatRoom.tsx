@@ -34,11 +34,15 @@ import {
   ArrowLeft
 } from "lucide-react";
 
+import { ForwardModal } from "./ForwardModal";
+
 interface ChatRoomProps {
   currentUser: User;
   conversation: Conversation;
   messages: Message[];
   allUsers: User[];
+  allConversations?: Conversation[];
+  allGroups?: Group[];
   group?: Group;
   onSendMessage: (payload: {
     text?: string;
@@ -52,6 +56,7 @@ interface ChatRoomProps {
   onReactMessage: (messageId: string, emoji?: string, isDoubleTapLike?: boolean) => void;
   onEditMessage: (messageId: string, newText: string) => void;
   onDeleteMessage: (messageId: string, deleteType: "for_me" | "for_all") => void;
+  onForwardMessage?: (targetConvId: string, text: string, mediaUrl?: string, type?: string) => void;
   onStartCall: (type: "voice" | "video") => void;
   onOpenGroupSettings: () => void;
   onSelectUserProfile?: (user: User) => void;
@@ -69,11 +74,14 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   conversation,
   messages,
   allUsers,
+  allConversations = [],
+  allGroups = [],
   group,
   onSendMessage,
   onReactMessage,
   onEditMessage,
   onDeleteMessage,
+  onForwardMessage,
   onStartCall,
   onOpenGroupSettings,
   onSelectUserProfile,
@@ -91,12 +99,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+  const [contextMenuMsg, setContextMenuMsg] = useState<Message | null>(null);
+  const [copiedToast, setCopiedToast] = useState(false);
+  const [heartParticles, setHeartParticles] = useState<{ id: string; msgId: string; emoji: string; x: number; y: number }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+  const longPressTimerRef = useRef<any>(null);
 
   // Other participant in DM
   const otherUserId = conversation.participants.find((id) => id !== currentUser.id);
@@ -139,9 +151,36 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     }
   };
 
-  // Double Click handler for instant Like ❤️
-  const handleDoubleClick = (msg: Message) => {
+  // Double Click handler for instant Like ❤️ with animated floating particles
+  const handleDoubleClick = (msg: Message, e?: React.MouseEvent) => {
     onReactMessage(msg.id, "❤️", true);
+
+    const emojis = ["❤️", "💖", "💘", "💕", "💓", "✨", "🔥"];
+    const particles = Array.from({ length: 7 }).map((_, i) => ({
+      id: Math.random().toString(),
+      msgId: msg.id,
+      emoji: emojis[i % emojis.length],
+      x: (Math.random() - 0.5) * 100,
+      y: -Math.random() * 50 - 20
+    }));
+
+    setHeartParticles((prev) => [...prev, ...particles]);
+    setTimeout(() => {
+      setHeartParticles((prev) => prev.filter((p) => !particles.some((np) => np.id === p.id)));
+    }, 1200);
+  };
+
+  // Long press for touch devices
+  const handleTouchStart = (msg: Message) => {
+    longPressTimerRef.current = setTimeout(() => {
+      setContextMenuMsg(msg);
+    }, 450);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
   };
 
   // Media Attachment Upload
@@ -350,10 +389,31 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   </div>
                 )}
 
+                {/* Floating Heart Particles Animation */}
+                {heartParticles
+                  .filter((p) => p.msgId === msg.id)
+                  .map((particle) => (
+                    <div
+                      key={particle.id}
+                      style={{
+                        transform: `translate(${particle.x}px, ${particle.y}px)`,
+                      }}
+                      className="absolute top-2 z-40 text-2xl animate-bounce pointer-events-none transition-all duration-1000 opacity-90 scale-125 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]"
+                    >
+                      {particle.emoji}
+                    </div>
+                  ))}
+
                 {/* Main Bubble */}
                 <div
-                  onDoubleClick={() => handleDoubleClick(msg)}
-                  className={`relative max-w-[82%] sm:max-w-[70%] rounded-2xl p-3 text-sm shadow-md transition-all ${
+                  onDoubleClick={(e) => handleDoubleClick(msg, e)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenuMsg(msg);
+                  }}
+                  onTouchStart={() => handleTouchStart(msg)}
+                  onTouchEnd={handleTouchEnd}
+                  className={`relative max-w-[82%] sm:max-w-[70%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
                     isMe
                       ? "bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-br-none"
                       : "bg-slate-800 border border-slate-700/80 text-slate-100 rounded-bl-none"
@@ -517,6 +577,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   } hidden group-hover:flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-2xl p-1 shadow-xl z-20`}
                 >
                   <button
+                    onClick={() => setContextMenuMsg(msg)}
+                    title="More Options & Reactions"
+                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400 text-xs"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
                     title="React with Emoji"
                     className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400 text-xs"
@@ -538,7 +605,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     <CornerUpLeft className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => navigator.clipboard.writeText(msg.text)}
+                    onClick={() => {
+                      setForwardMsg(msg);
+                    }}
+                    title="Forward Message"
+                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (msg.text) {
+                        navigator.clipboard.writeText(msg.text);
+                        setCopiedToast(true);
+                        setTimeout(() => setCopiedToast(false), 2000);
+                      }
+                    }}
                     title="Copy Text"
                     className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
                   >
@@ -724,6 +806,155 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Long Click / Context Menu Overlay Modal */}
+      {contextMenuMsg && (
+        <div
+          onClick={() => setContextMenuMsg(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn select-none"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-[#0b0f24] border border-red-500/30 rounded-3xl p-5 text-slate-100 shadow-[0_0_50px_rgba(239,68,68,0.25)] flex flex-col gap-4 animate-in zoom-in-95"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="text-xs font-bold text-red-400">Message Options</span>
+              <button
+                onClick={() => setContextMenuMsg(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick 24 Emoji Reactions Bar */}
+            <div>
+              <p className="text-[11px] font-semibold text-slate-400 mb-2">Reactions (24+ Emojis)</p>
+              <div className="grid grid-cols-6 gap-2 bg-[#050814] p-3 rounded-2xl border border-slate-800/80 max-h-36 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                {EMOJI_LIST.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => {
+                      onReactMessage(contextMenuMsg.id, emoji);
+                      setContextMenuMsg(null);
+                    }}
+                    className="text-xl p-1.5 rounded-xl hover:bg-slate-800 hover:scale-125 transition-all flex items-center justify-center"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Message Action Items */}
+            <div className="space-y-1 text-xs">
+              <button
+                onClick={() => {
+                  setReplyTo({
+                    id: contextMenuMsg.id,
+                    senderName: contextMenuMsg.senderName,
+                    text: contextMenuMsg.text || "Media message",
+                    type: contextMenuMsg.type
+                  });
+                  setContextMenuMsg(null);
+                }}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+              >
+                <CornerUpLeft className="w-4 h-4 text-pink-400" />
+                <span>Reply to message</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (contextMenuMsg.text) {
+                    navigator.clipboard.writeText(contextMenuMsg.text);
+                    setCopiedToast(true);
+                    setTimeout(() => setCopiedToast(false), 2000);
+                  }
+                  setContextMenuMsg(null);
+                }}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+              >
+                <Copy className="w-4 h-4 text-indigo-400" />
+                <span>Copy text</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setForwardMsg(contextMenuMsg);
+                  setContextMenuMsg(null);
+                }}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+              >
+                <Share2 className="w-4 h-4 text-cyan-400" />
+                <span>Forward message</span>
+              </button>
+
+              {contextMenuMsg.senderId === currentUser.id && (
+                <button
+                  onClick={() => {
+                    setEditingMsgId(contextMenuMsg.id);
+                    setEditingText(contextMenuMsg.text);
+                    setContextMenuMsg(null);
+                  }}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4 text-amber-400" />
+                  <span>Edit message</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  onDeleteMessage(contextMenuMsg.id, "for_me");
+                  setContextMenuMsg(null);
+                }}
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-rose-300 transition-colors"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Delete for me</span>
+              </button>
+
+              {contextMenuMsg.senderId === currentUser.id && (
+                <button
+                  onClick={() => {
+                    onDeleteMessage(contextMenuMsg.id, "for_all");
+                    setContextMenuMsg(null);
+                  }}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-rose-950/40 text-rose-400 font-bold transition-colors"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-500" />
+                  <span>Delete for everyone</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Copy Toast Alert */}
+      {copiedToast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-emerald-600 text-white text-xs font-bold shadow-xl border border-emerald-400 animate-in fade-in slide-in-from-top-4">
+          Copied to clipboard! ✓
+        </div>
+      )}
+
+      {/* Forward Modal */}
+      {forwardMsg && (
+        <ForwardModal
+          message={forwardMsg}
+          conversations={allConversations}
+          groups={allGroups}
+          allUsers={allUsers}
+          currentUser={currentUser}
+          onClose={() => setForwardMsg(null)}
+          onForwardToConversation={(targetConvId, text, mediaUrl, type) => {
+            if (onForwardMessage) {
+              onForwardMessage(targetConvId, text, mediaUrl, type);
+            }
+          }}
+        />
       )}
     </div>
   );

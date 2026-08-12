@@ -8,6 +8,7 @@ import { CallOverlay } from "./components/CallOverlay";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserProfileModal } from "./components/UserProfileModal";
+import { IncomingCallModal } from "./components/IncomingCallModal";
 import { MessageSquare } from "lucide-react";
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState<User | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
+  const [incomingCall, setIncomingCall] = useState<ActiveCall | null>(null);
 
   // Load initial dataset
   const fetchData = async () => {
@@ -131,7 +133,7 @@ export default function App() {
     eventSource.addEventListener("call_incoming", (e: any) => {
       const call: ActiveCall = JSON.parse(e.data);
       if (call.targetId === currentUser.id) {
-        setActiveCall(call);
+        setIncomingCall(call);
       }
     });
 
@@ -139,8 +141,10 @@ export default function App() {
       const call: ActiveCall = JSON.parse(e.data);
       if (call.status === "ended") {
         setActiveCall(null);
-      } else if (call.id === activeCall?.id) {
+        setIncomingCall(null);
+      } else if (call.status === "connected") {
         setActiveCall(call);
+        setIncomingCall(null);
       }
     });
 
@@ -471,6 +475,57 @@ export default function App() {
     }
   };
 
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+    try {
+      await fetch("/api/calls/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept", callId: incomingCall.id })
+      });
+      setActiveCall({ ...incomingCall, status: "connected" });
+      setIncomingCall(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    try {
+      await fetch("/api/calls/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "end", callId: incomingCall.id })
+      });
+      setIncomingCall(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleForwardMessage = async (targetConvId: string, text: string, mediaUrl?: string, type?: string) => {
+    if (!currentUser) return;
+    try {
+      await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: targetConvId,
+          senderId: currentUser.id,
+          text: text ? `[Forwarded]: ${text}` : "[Forwarded Media]",
+          mediaUrl,
+          type: type || "text"
+        })
+      });
+      setActiveConversationId(targetConvId);
+      setViewMode("chat");
+      setMobileShowChat(true);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (!currentUser) {
     return <AuthModal onLoginSuccess={handleLoginSuccess} />;
   }
@@ -524,11 +579,14 @@ export default function App() {
             conversation={activeConv}
             messages={messages}
             allUsers={allUsers}
+            allConversations={conversations}
+            allGroups={groups}
             group={activeGroup}
             onSendMessage={handleSendMessage}
             onReactMessage={handleReactMessage}
             onEditMessage={handleEditMessage}
             onDeleteMessage={handleDeleteMessage}
+            onForwardMessage={handleForwardMessage}
             onStartCall={handleStartCall}
             onOpenGroupSettings={() => setGroupModalState({ open: true, mode: "manage" })}
             onSelectUserProfile={(user) => setSelectedUserProfile(user)}
@@ -583,6 +641,15 @@ export default function App() {
           onStartDM={(targetUserId) => {
             handleStartDMWithUser(targetUserId);
           }}
+        />
+      )}
+
+      {/* Incoming Call Popup Modal */}
+      {incomingCall && (
+        <IncomingCallModal
+          call={incomingCall}
+          onAccept={handleAcceptCall}
+          onDecline={handleDeclineCall}
         />
       )}
 
