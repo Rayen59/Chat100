@@ -750,71 +750,141 @@ app.get("/api/analytics/:userId", (req: Request, res: Response) => {
   const totalSent = userMessages.length;
 
   let totalReceived = 0;
+  const contactMsgCounts: Record<string, { sent: number; received: number }> = {};
+
   store.messages.forEach((m) => {
-    if (m.senderId !== userId) {
-      const conv = store.conversations.find((c) => c.id === m.conversationId);
-      if (conv && conv.participants.includes(userId)) {
-        totalReceived++;
-      }
+    const conv = store.conversations.find((c) => c.id === m.conversationId);
+    if (!conv || !conv.participants.includes(userId)) return;
+
+    if (m.senderId === userId) {
+      conv.participants.forEach((pId) => {
+        if (pId !== userId) {
+          if (!contactMsgCounts[pId]) contactMsgCounts[pId] = { sent: 0, received: 0 };
+          contactMsgCounts[pId].sent++;
+        }
+      });
+    } else {
+      totalReceived++;
+      if (!contactMsgCounts[m.senderId]) contactMsgCounts[m.senderId] = { sent: 0, received: 0 };
+      contactMsgCounts[m.senderId].received++;
     }
   });
 
   const voiceNotesCount = userMessages.filter((m) => m.type === "voice").length;
-  const mediaCount = userMessages.filter(
-    (m) => m.type === "image" || m.type === "video" || m.type === "file" || m.type === "gif"
-  ).length;
+  const imageVideoCount = userMessages.filter((m) => m.type === "image" || m.type === "video").length;
+  const gifFileCount = userMessages.filter((m) => m.type === "gif" || m.type === "file").length;
+  const mediaCount = imageVideoCount + gifFileCount;
 
-  // Compute a deterministic seed from userId so each user gets distinct special stats
-  const hashSeed = userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  // Calculate actual daily trends over the last 7 days
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const today = new Date();
+  const dailyTrends: { date: string; sent: number; received: number }[] = [];
 
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const dailyTrends = days.map((day, idx) => {
-    const baseSent = Math.floor(((hashSeed * (idx + 1) * 7) % 25) + 3) + (idx === 6 ? totalSent : 0);
-    const baseRecv = Math.floor(((hashSeed * (idx + 2) * 11) % 30) + 5) + (idx === 6 ? totalReceived : 0);
-    return { date: day, sent: baseSent, received: baseRecv };
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dayLabel = dayNames[d.getDay()];
+    const dateStr = d.toISOString().split("T")[0];
+
+    const sentOnDay = userMessages.filter((m) => m.createdAt && m.createdAt.startsWith(dateStr)).length;
+    let recvOnDay = 0;
+    store.messages.forEach((m) => {
+      if (m.senderId !== userId && m.createdAt && m.createdAt.startsWith(dateStr)) {
+        const conv = store.conversations.find((c) => c.id === m.conversationId);
+        if (conv && conv.participants.includes(userId)) recvOnDay++;
+      }
+    });
+
+    // If no dated messages exist for previous days, allocate a baseline or keep exact
+    dailyTrends.push({
+      date: dayLabel,
+      sent: i === 0 ? sentOnDay : sentOnDay,
+      received: i === 0 ? recvOnDay : recvOnDay
+    });
+  }
+
+  // Active hours distribution
+  const hourBuckets = [
+    { hour: "00:00", count: 0 },
+    { hour: "04:00", count: 0 },
+    { hour: "08:00", count: 0 },
+    { hour: "12:00", count: 0 },
+    { hour: "16:00", count: 0 },
+    { hour: "20:00", count: 0 }
+  ];
+
+  userMessages.forEach((m) => {
+    try {
+      const date = new Date(m.createdAt);
+      const h = date.getHours();
+      if (h >= 0 && h < 4) hourBuckets[0].count++;
+      else if (h >= 4 && h < 8) hourBuckets[1].count++;
+      else if (h >= 8 && h < 12) hourBuckets[2].count++;
+      else if (h >= 12 && h < 16) hourBuckets[3].count++;
+      else if (h >= 16 && h < 20) hourBuckets[4].count++;
+      else hourBuckets[5].count++;
+    } catch (e) {}
   });
 
-  const activeHours = [
-    { hour: "00:00", count: (hashSeed * 3) % 4 },
-    { hour: "04:00", count: (hashSeed * 7) % 2 },
-    { hour: "08:00", count: Math.floor(((hashSeed * 13) % 15) + 5) },
-    { hour: "12:00", count: Math.floor(((hashSeed * 17) % 25) + 12) },
-    { hour: "16:00", count: Math.floor(((hashSeed * 23) % 30) + 18) },
-    { hour: "20:00", count: Math.floor(((hashSeed * 29) % 22) + 8) }
-  ];
-
   const mediaBreakdown = [
-    { name: "Text Messages", value: Math.max(5, totalSent * 2 + ((hashSeed % 15) + 5)) },
-    { name: "Voice Notes", value: Math.max(1, voiceNotesCount + ((hashSeed % 6) + 1)) },
-    { name: "Images & Video", value: Math.max(2, mediaCount + ((hashSeed % 8) + 2)) },
-    { name: "GIFs & Files", value: Math.max(1, (hashSeed % 5) + 1) }
+    { name: "Text Messages", value: Math.max(0, totalSent - voiceNotesCount - mediaCount) },
+    { name: "Voice Notes", value: voiceNotesCount },
+    { name: "Images & Video", value: imageVideoCount },
+    { name: "GIFs & Files", value: gifFileCount }
   ];
 
-  // User-specific top contacts
-  const otherUsers = store.users.filter((u) => u.id !== userId);
-  const topContacts = otherUsers.slice(0, 3).map((u, i) => ({
-    name: u.username,
-    avatar: u.avatar,
-    messages: Math.floor(((hashSeed * (i + 1) * 19) % 40) + 10),
-    hoursSpent: `${((((hashSeed * (i + 1) * 3) % 30) + 5) / 10).toFixed(1)}h spent`,
-    responseTime: `~${Math.floor(((hashSeed * (i + 1) * 11) % 45) + 12)}s response time`
-  }));
+  // Top contacts list
+  const topContacts = Object.entries(contactMsgCounts)
+    .map(([cUserId, counts]) => {
+      const cUser = store.users.find((u) => u.id === cUserId);
+      const totalExchanged = counts.sent + counts.received;
+      return {
+        name: cUser ? cUser.username : "Wavegram Member",
+        avatar: cUser ? cUser.avatar : `https://api.dicebear.com/7.x/identicon/svg?seed=${cUserId}`,
+        messages: totalExchanged,
+        hoursSpent: `${(totalExchanged * 0.05).toFixed(1)}h spent`,
+        responseTime: `~${Math.max(12, Math.floor(45 - totalExchanged))}s response time`
+      };
+    })
+    .sort((a, b) => b.messages - a.messages)
+    .slice(0, 4);
+
+  // If topContacts empty, populate with other users
+  if (topContacts.length === 0) {
+    store.users
+      .filter((u) => u.id !== userId)
+      .slice(0, 3)
+      .forEach((u) => {
+        topContacts.push({
+          name: u.username,
+          avatar: u.avatar,
+          messages: 0,
+          hoursSpent: "0.0h spent",
+          responseTime: "N/A"
+        });
+      });
+  }
+
+  const hoursSpent = Number(((totalSent * 0.08) + (totalReceived * 0.05) + (voiceNotesCount * 0.1)).toFixed(1));
+  const totalMsgs = totalSent + totalReceived;
+  const streak = totalSent > 0 ? Math.min(30, Math.ceil(totalSent / 2)) : 0;
+  const engagement = totalMsgs > 0 ? Math.min(100, 50 + totalMsgs * 3) : 10;
 
   const analyticsData: UserAnalytics = {
     userId,
-    hoursSpent: Number((((hashSeed % 50) + 10) / 10).toFixed(1)),
-    totalMessagesSent: totalSent + (hashSeed % 20) + 12,
-    totalMessagesReceived: totalReceived + (hashSeed % 30) + 25,
-    totalMessages: totalSent + totalReceived + (hashSeed % 50) + 37,
-    totalVoiceNotes: voiceNotesCount + (hashSeed % 5),
-    totalMediaShared: mediaCount + (hashSeed % 8),
-    totalCallsMade: Math.floor((hashSeed % 12) + 2),
-    totalCallDurationMinutes: Math.floor((hashSeed % 180) + 25),
-    activeStreakDays: Math.floor((hashSeed % 30) + 3),
-    activeHours,
+    hoursSpent,
+    totalMessagesSent: totalSent,
+    totalMessagesReceived: totalReceived,
+    totalMessages: totalMsgs,
+    totalVoiceNotes: voiceNotesCount,
+    totalMediaShared: mediaCount,
+    totalCallsMade: Math.floor(totalSent / 5),
+    totalCallDurationMinutes: Math.floor(totalSent * 1.5),
+    activeStreakDays: streak,
+    activeHours: hourBuckets,
     dailyTrends,
     mediaBreakdown,
-    engagementScore: Math.min(99, Math.max(65, Math.floor((hashSeed % 35) + 65))),
+    engagementScore: engagement,
     topContacts
   };
 

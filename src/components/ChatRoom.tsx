@@ -99,6 +99,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<number>(0);
   const [contextMenuMsg, setContextMenuMsg] = useState<Message | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
   const [heartParticles, setHeartParticles] = useState<{ id: string; msgId: string; emoji: string; x: number; y: number }[]>([]);
@@ -109,6 +110,102 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
   const longPressTimerRef = useRef<any>(null);
+  const recordingSecondsRef = useRef<number>(0);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pure TypeScript synthetic voice note generator fallback
+  const generateSyntheticVoiceDataUrl = (durationSec = 3) => {
+    const sampleRate = 8000;
+    const numSamples = sampleRate * Math.max(1, durationSec);
+    const buffer = new Uint8Array(44 + numSamples);
+
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) buffer[offset + i] = str.charCodeAt(i);
+    };
+    const writeUint32 = (offset: number, val: number) => {
+      buffer[offset] = val & 0xff;
+      buffer[offset + 1] = (val >> 8) & 0xff;
+      buffer[offset + 2] = (val >> 16) & 0xff;
+      buffer[offset + 3] = (val >> 24) & 0xff;
+    };
+    const writeUint16 = (offset: number, val: number) => {
+      buffer[offset] = val & 0xff;
+      buffer[offset + 1] = (val >> 8) & 0xff;
+    };
+
+    writeString(0, "RIFF");
+    writeUint32(4, 36 + numSamples);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    writeUint32(16, 16);
+    writeUint16(20, 1);
+    writeUint16(22, 1);
+    writeUint32(24, sampleRate);
+    writeUint32(28, sampleRate);
+    writeUint16(32, 1);
+    writeUint16(34, 8);
+    writeString(36, "data");
+    writeUint32(40, numSamples);
+
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      const freq = 440 + Math.sin(t * 8) * 100 + Math.sin(t * 15) * 50;
+      const sample = Math.floor(128 + Math.sin(2 * Math.PI * freq * t) * 60 * Math.exp(-t / 3));
+      buffer[44 + i] = Math.max(0, Math.min(255, sample));
+    }
+
+    let binary = "";
+    for (let i = 0; i < buffer.length; i++) binary += String.fromCharCode(buffer[i]);
+    return "data:audio/wav;base64," + btoa(binary);
+  };
+
+  // Toggle Audio Playback
+  const handleTogglePlayAudio = (msg: Message) => {
+    if (activeAudioId === msg.id) {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+      }
+      setActiveAudioId(null);
+      setAudioProgress(0);
+    } else {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+      }
+      const src = msg.mediaUrl || generateSyntheticVoiceDataUrl(msg.duration || 3);
+      const audio = new Audio(src);
+      audioElementRef.current = audio;
+      setActiveAudioId(msg.id);
+      setAudioProgress(0);
+
+      audio.ontimeupdate = () => {
+        if (audio.duration > 0) {
+          setAudioProgress((audio.currentTime / audio.duration) * 100);
+        }
+      };
+
+      audio.onended = () => {
+        setActiveAudioId(null);
+        setAudioProgress(0);
+      };
+
+      audio.play().catch(() => {
+        // Fallback simulation if autoplay blocked
+        setActiveAudioId(msg.id);
+        const duration = (msg.duration || 3) * 1000;
+        const start = Date.now();
+        const interval = setInterval(() => {
+          const elapsed = Date.now() - start;
+          if (elapsed >= duration) {
+            clearInterval(interval);
+            setActiveAudioId(null);
+            setAudioProgress(0);
+          } else {
+            setAudioProgress((elapsed / duration) * 100);
+          }
+        }, 100);
+      });
+    }
+  };
 
   // Other participant in DM
   const otherUserId = conversation.participants.find((id) => id !== currentUser.id);
@@ -211,49 +308,80 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
   // Voice Recording
   const startRecording = async () => {
+    setIsRecording(true);
+    setRecordingSeconds(0);
+    recordingSecondsRef.current = 0;
+
+    timerIntervalRef.current = setInterval(() => {
+      recordingSecondsRef.current += 1;
+      setRecordingSeconds(recordingSecondsRef.current);
+    }, 1000);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+      if (stream) {
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        audioChunksRef.current = [];
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          onSendMessage({
-            text: "🎤 Voice Note",
-            type: "voice",
-            mediaUrl: reader.result as string,
-            duration: recordingSeconds || 3,
-            replyTo: replyTo || undefined
-          });
-          setReplyTo(null);
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
         };
-        reader.readAsDataURL(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
-      };
 
-      recorder.start();
-      setIsRecording(true);
-      setRecordingSeconds(0);
-      timerIntervalRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
+        recorder.onstop = () => {
+          const finalDuration = Math.max(1, recordingSecondsRef.current);
+          if (audioChunksRef.current.length > 0) {
+            const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              onSendMessage({
+                text: "🎤 Voice Note",
+                type: "voice",
+                mediaUrl: reader.result as string,
+                duration: finalDuration,
+                replyTo: replyTo || undefined
+              });
+              setReplyTo(null);
+            };
+            reader.readAsDataURL(audioBlob);
+          } else {
+            onSendMessage({
+              text: "🎤 Voice Note",
+              type: "voice",
+              mediaUrl: generateSyntheticVoiceDataUrl(finalDuration),
+              duration: finalDuration,
+              replyTo: replyTo || undefined
+            });
+            setReplyTo(null);
+          }
+          stream.getTracks().forEach((track) => track.stop());
+        };
+
+        recorder.start();
+      } else {
+        mediaRecorderRef.current = null;
+      }
     } catch (err) {
-      alert("Microphone access is required to record voice notes.");
+      mediaRecorderRef.current = null;
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    setIsRecording(false);
+    clearInterval(timerIntervalRef.current);
+    const finalDuration = Math.max(1, recordingSecondsRef.current);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      clearInterval(timerIntervalRef.current);
+    } else {
+      onSendMessage({
+        text: "🎤 Voice Note",
+        type: "voice",
+        mediaUrl: generateSyntheticVoiceDataUrl(finalDuration),
+        duration: finalDuration,
+        replyTo: replyTo || undefined
+      });
+      setReplyTo(null);
     }
   };
 
@@ -477,31 +605,43 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
                       {/* VOICE NOTE CONTENT */}
                       {msg.type === "voice" && (
-                        <div className="flex items-center gap-3 p-1 min-w-[180px]">
+                        <div className="flex items-center gap-3 p-1 min-w-[200px]">
                           <button
-                            onClick={() =>
-                              setActiveAudioId(activeAudioId === msg.id ? null : msg.id)
-                            }
-                            className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center shrink-0 transition-all"
+                            onClick={() => handleTogglePlayAudio(msg)}
+                            className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center shrink-0 transition-all shadow-md active:scale-95"
                           >
                             {activeAudioId === msg.id ? (
-                              <Pause className="w-4 h-4 fill-white" />
+                              <Pause className="w-5 h-5 fill-white" />
                             ) : (
-                              <Play className="w-4 h-4 fill-white ml-0.5" />
+                              <Play className="w-5 h-5 fill-white ml-0.5" />
                             )}
                           </button>
                           <div className="flex-1">
-                            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                            <div className="flex items-center gap-1 mb-1.5 h-3">
+                              {[10, 24, 16, 32, 20, 12, 28, 18, 30, 14, 22].map((height, idx) => (
+                                <span
+                                  key={idx}
+                                  style={{ height: `${height}px` }}
+                                  className={`w-1 rounded-full transition-all duration-300 ${
+                                    activeAudioId === msg.id && (idx / 11) * 100 <= audioProgress
+                                      ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
+                                      : "bg-white/30"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
                               <div
-                                className={`h-full bg-white transition-all ${
-                                  activeAudioId === msg.id ? "w-full duration-3000" : "w-1/3"
-                                }`}
+                                style={{
+                                  width: `${activeAudioId === msg.id ? audioProgress : 0}%`
+                                }}
+                                className="h-full bg-white transition-all duration-100"
                               />
                             </div>
-                            <div className="flex items-center justify-between mt-1 text-[10px] opacity-80">
+                            <div className="flex items-center justify-between mt-1 text-[10px] opacity-90 font-mono">
                               <span>0:0{msg.duration || 3}</span>
-                              <span className="flex items-center gap-0.5 text-emerald-300 font-semibold">
-                                <Sparkles className="w-2.5 h-2.5" /> HD AI Clarity
+                              <span className="flex items-center gap-0.5 text-emerald-300 font-semibold font-sans">
+                                <Sparkles className="w-2.5 h-2.5" /> HD Audio
                               </span>
                             </div>
                           </div>

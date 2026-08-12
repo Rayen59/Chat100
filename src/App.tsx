@@ -9,6 +9,7 @@ import { AnalyticsView } from "./components/AnalyticsView";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserProfileModal } from "./components/UserProfileModal";
 import { IncomingCallModal } from "./components/IncomingCallModal";
+import { NotificationToast, AppNotification } from "./components/NotificationToast";
 import { MessageSquare } from "lucide-react";
 
 export default function App() {
@@ -26,6 +27,27 @@ export default function App() {
   const [sidebarTab, setSidebarTab] = useState<"chats" | "people" | "groups">("chats");
   const [viewMode, setViewMode] = useState<"chat" | "analytics">("chat");
   const [mobileShowChat, setMobileShowChat] = useState<boolean>(false);
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // Synthesize notification sound
+  const playNotificationSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.25);
+    } catch (e) {}
+  };
 
   // Modals
   const [groupModalState, setGroupModalState] = useState<{
@@ -95,6 +117,24 @@ export default function App() {
 
     eventSource.addEventListener("new_message", (e: any) => {
       const newMsg: Message = JSON.parse(e.data);
+
+      // Trigger notification if message is from another user
+      if (newMsg.senderId !== currentUser.id) {
+        playNotificationSound();
+        const sender = allUsers.find((u) => u.id === newMsg.senderId);
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "message",
+          title: "New Message",
+          senderName: newMsg.senderName || sender?.username || "Wavegram User",
+          senderAvatar: sender?.avatar,
+          text: newMsg.type === "voice" ? "🎤 Sent a voice note" : newMsg.text || "Sent a media file",
+          conversationId: newMsg.conversationId,
+          createdAt: newMsg.createdAt
+        };
+        setNotifications((prev) => [...prev, notif]);
+      }
+
       if (newMsg.conversationId === activeConversationId) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -133,7 +173,18 @@ export default function App() {
     eventSource.addEventListener("call_incoming", (e: any) => {
       const call: ActiveCall = JSON.parse(e.data);
       if (call.targetId === currentUser.id) {
+        playNotificationSound();
         setIncomingCall(call);
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "call",
+          title: "Incoming Call",
+          senderName: call.callerName,
+          senderAvatar: call.callerAvatar,
+          text: `Incoming ${call.type} call...`,
+          createdAt: new Date().toISOString()
+        };
+        setNotifications((prev) => [...prev, notif]);
       }
     });
 
@@ -661,6 +712,20 @@ export default function App() {
           onEndCall={handleEndCall}
         />
       )}
+
+      {/* Realtime Notification Toasts */}
+      <NotificationToast
+        notifications={notifications}
+        onDismiss={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
+        onSelectNotification={(notif) => {
+          if (notif.conversationId) {
+            setActiveConversationId(notif.conversationId);
+            setViewMode("chat");
+            setMobileShowChat(true);
+          }
+          setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+        }}
+      />
     </div>
   );
 }
