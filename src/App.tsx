@@ -7,6 +7,7 @@ import { GroupModal } from "./components/GroupModal";
 import { CallOverlay } from "./components/CallOverlay";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { ProfileModal } from "./components/ProfileModal";
+import { UserProfileModal } from "./components/UserProfileModal";
 import { MessageSquare } from "lucide-react";
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
   
   const [sidebarTab, setSidebarTab] = useState<"chats" | "people" | "groups">("chats");
   const [viewMode, setViewMode] = useState<"chat" | "analytics">("chat");
+  const [mobileShowChat, setMobileShowChat] = useState<boolean>(false);
 
   // Modals
   const [groupModalState, setGroupModalState] = useState<{
@@ -31,6 +33,7 @@ export default function App() {
   }>({ open: false, mode: "create" });
 
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<User | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
 
   // Load initial dataset
@@ -210,9 +213,11 @@ export default function App() {
         setActiveConversationId(data.conversation.id);
         setSidebarTab("chats");
         setViewMode("chat");
+        setMobileShowChat(true);
+        setSelectedUserProfile(null);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Start DM error:", err);
     }
   };
 
@@ -479,30 +484,40 @@ export default function App() {
     <div className="flex h-screen w-screen bg-[#050814] text-slate-100 overflow-hidden font-sans">
       
       {/* Sidebar Navigation */}
-      <Sidebar
-        currentUser={currentUser}
-        allUsers={allUsers}
-        conversations={conversations}
-        groups={groups}
-        activeConversationId={activeConversationId}
-        activeTab={sidebarTab}
-        setActiveTab={setSidebarTab}
-        onSelectConversation={(id) => {
-          setActiveConversationId(id);
-          setViewMode("chat");
-        }}
-        onStartDMWithUser={handleStartDMWithUser}
-        onCreateGroupClick={() => setGroupModalState({ open: true, mode: "create" })}
-        onJoinGroupClick={() => setGroupModalState({ open: true, mode: "join" })}
-        onOpenAnalytics={() => setViewMode("analytics")}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onLogout={handleLogout}
-      />
+      <div className={mobileShowChat ? "hidden md:flex shrink-0 h-full" : "flex w-full md:w-80 lg:w-96 shrink-0 h-full"}>
+        <Sidebar
+          currentUser={currentUser}
+          allUsers={allUsers}
+          conversations={conversations}
+          groups={groups}
+          activeConversationId={activeConversationId}
+          activeTab={sidebarTab}
+          setActiveTab={setSidebarTab}
+          onSelectConversation={(id) => {
+            setActiveConversationId(id);
+            setViewMode("chat");
+            setMobileShowChat(true);
+          }}
+          onStartDMWithUser={handleStartDMWithUser}
+          onSelectUserProfile={(user) => setSelectedUserProfile(user)}
+          onCreateGroupClick={() => setGroupModalState({ open: true, mode: "create" })}
+          onJoinGroupClick={() => setGroupModalState({ open: true, mode: "join" })}
+          onOpenAnalytics={() => {
+            setViewMode("analytics");
+            setMobileShowChat(true);
+          }}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onLogout={handleLogout}
+        />
+      </div>
 
       {/* Main View Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#050814] relative">
+      <div className={mobileShowChat ? "flex-1 flex flex-col h-full overflow-hidden bg-[#050814] relative w-full" : "hidden md:flex flex-1 flex-col h-full overflow-hidden bg-[#050814] relative"}>
         {viewMode === "analytics" ? (
-          <AnalyticsView currentUser={currentUser} onBack={() => setViewMode("chat")} />
+          <AnalyticsView currentUser={currentUser} onBack={() => {
+            setViewMode("chat");
+            setMobileShowChat(false);
+          }} />
         ) : activeConv ? (
           <ChatRoom
             currentUser={currentUser}
@@ -516,6 +531,8 @@ export default function App() {
             onDeleteMessage={handleDeleteMessage}
             onStartCall={handleStartCall}
             onOpenGroupSettings={() => setGroupModalState({ open: true, mode: "manage" })}
+            onSelectUserProfile={(user) => setSelectedUserProfile(user)}
+            onBackMobile={() => setMobileShowChat(false)}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 select-none bg-[#050814]">
@@ -554,6 +571,18 @@ export default function App() {
           }}
           onLogout={handleLogout}
           onDeleteAccount={handleDeleteAccount}
+        />
+      )}
+
+      {/* User Profile Modal */}
+      {selectedUserProfile && (
+        <UserProfileModal
+          user={selectedUserProfile}
+          currentUser={currentUser}
+          onClose={() => setSelectedUserProfile(null)}
+          onStartDM={(targetUserId) => {
+            handleStartDMWithUser(targetUserId);
+          }}
         />
       )}
 

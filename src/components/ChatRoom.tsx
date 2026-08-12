@@ -30,7 +30,8 @@ import {
   CheckCheck,
   FileText,
   Image as ImageIcon,
-  Film
+  Film,
+  ArrowLeft
 } from "lucide-react";
 
 interface ChatRoomProps {
@@ -53,6 +54,8 @@ interface ChatRoomProps {
   onDeleteMessage: (messageId: string, deleteType: "for_me" | "for_all") => void;
   onStartCall: (type: "voice" | "video") => void;
   onOpenGroupSettings: () => void;
+  onSelectUserProfile?: (user: User) => void;
+  onBackMobile?: () => void;
 }
 
 const EMOJI_LIST = [
@@ -72,7 +75,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   onEditMessage,
   onDeleteMessage,
   onStartCall,
-  onOpenGroupSettings
+  onOpenGroupSettings,
+  onSelectUserProfile,
+  onBackMobile
 }) => {
   const [inputText, setInputText] = useState("");
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
@@ -218,34 +223,55 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
       
       {/* Header */}
       <div className="p-3 px-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md flex items-center justify-between z-10">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <img
-              src={avatar}
-              alt={title}
-              className="w-10 h-10 rounded-2xl object-cover bg-slate-800 ring-2 ring-pink-500/20"
-            />
-            {isOnline && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-100 text-sm">{title}</h2>
-              {group?.themeColor && (
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: group.themeColor }}
-                />
+        <div className="flex items-center gap-2 sm:gap-3">
+          {onBackMobile && (
+            <button
+              onClick={onBackMobile}
+              className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Back to chats"
+            >
+              <ArrowLeft className="w-5 h-5 text-red-500" />
+            </button>
+          )}
+
+          <div
+            onClick={() => {
+              if (conversation.type === "dm" && otherUser && onSelectUserProfile) {
+                onSelectUserProfile(otherUser);
+              } else if (conversation.type === "group") {
+                onOpenGroupSettings();
+              }
+            }}
+            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
+          >
+            <div className="relative shrink-0">
+              <img
+                src={avatar}
+                alt={title}
+                className="w-10 h-10 rounded-2xl object-cover bg-slate-800 ring-2 ring-red-500/30 group-hover:scale-105 transition-transform"
+              />
+              {isOnline && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
               )}
             </div>
-            <p className="text-[11px] text-slate-400">
-              {conversation.type === "group"
-                ? `${group?.memberIds.length || 1} members • Tap for info`
-                : isOnline
-                ? "Online"
-                : "Offline"}
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-slate-100 text-sm group-hover:text-red-400 transition-colors">{title}</h2>
+                {group?.themeColor && (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: group.themeColor }}
+                  />
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                {conversation.type === "group"
+                  ? `${group?.memberIds.length || 1} members • Tap for info`
+                  : isOnline
+                  ? "Online • Tap to view profile"
+                  : "Offline • Tap to view profile"}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -299,9 +325,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               >
                 {/* Sender Name in Groups */}
                 {!isMe && conversation.type === "group" && (
-                  <span className="text-[10px] font-semibold text-slate-400 mb-0.5 ml-1">
+                  <button
+                    onClick={() => {
+                      const senderUser = allUsers.find((u) => u.id === msg.senderId);
+                      if (senderUser && onSelectUserProfile) {
+                        onSelectUserProfile(senderUser);
+                      }
+                    }}
+                    className="text-[10px] font-bold text-red-400 hover:underline mb-0.5 ml-1 text-left"
+                  >
                     {msg.senderName}
-                  </span>
+                  </button>
                 )}
 
                 {/* Quoted Reply if any */}

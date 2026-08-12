@@ -23,6 +23,7 @@ interface SidebarProps {
   setActiveTab: (tab: "chats" | "people" | "groups") => void;
   onSelectConversation: (convId: string) => void;
   onStartDMWithUser: (targetUserId: string) => void;
+  onSelectUserProfile?: (user: User) => void;
   onCreateGroupClick: () => void;
   onJoinGroupClick: () => void;
   onOpenAnalytics: () => void;
@@ -40,6 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   onSelectConversation,
   onStartDMWithUser,
+  onSelectUserProfile,
   onCreateGroupClick,
   onJoinGroupClick,
   onOpenAnalytics,
@@ -296,10 +298,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               filteredUsers.map((user) => (
-                <button
+                <div
                   key={user.id}
-                  onClick={() => onStartDMWithUser(user.id)}
-                  className="w-full p-3 rounded-2xl flex items-center gap-3 hover:bg-[#0c102a] border border-transparent hover:border-red-500/20 transition-all text-left group"
+                  onClick={() => {
+                    if (onSelectUserProfile) {
+                      onSelectUserProfile(user);
+                    } else {
+                      onStartDMWithUser(user.id);
+                    }
+                  }}
+                  className="w-full p-3 rounded-2xl flex items-center gap-3 hover:bg-[#0c102a] border border-transparent hover:border-red-500/20 transition-all text-left group cursor-pointer"
                 >
                   <div className="relative shrink-0">
                     <img
@@ -328,10 +336,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <p className="text-xs text-slate-400 truncate">{user.bio || user.email}</p>
                   </div>
 
-                  <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-xl shrink-0 group-hover:bg-red-600 group-hover:text-white transition-all">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartDMWithUser(user.id);
+                    }}
+                    className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-xl shrink-0 hover:bg-red-600 hover:text-white transition-all active:scale-95"
+                  >
                     Chat
-                  </span>
-                </button>
+                  </button>
+                </div>
               ))
             )}
           </>
