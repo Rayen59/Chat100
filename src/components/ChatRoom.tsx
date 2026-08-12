@@ -31,7 +31,11 @@ import {
   FileText,
   Image as ImageIcon,
   Film,
-  ArrowLeft
+  ArrowLeft,
+  Download,
+  ShieldAlert,
+  UserX,
+  UserCheck
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
@@ -61,6 +65,8 @@ interface ChatRoomProps {
   onOpenGroupSettings: () => void;
   onSelectUserProfile?: (user: User) => void;
   onBackMobile?: () => void;
+  onDeleteConversation?: (convId: string) => void;
+  onBlockUser?: (targetUserId: string) => void;
 }
 
 const EMOJI_LIST = [
@@ -85,7 +91,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   onStartCall,
   onOpenGroupSettings,
   onSelectUserProfile,
-  onBackMobile
+  onBackMobile,
+  onDeleteConversation,
+  onBlockUser
 }) => {
   const [inputText, setInputText] = useState("");
   const [replyTo, setReplyTo] = useState<ReplyToMessage | null>(null);
@@ -93,6 +101,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [editingText, setEditingText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null); // messageId
   const [showGifModal, setShowGifModal] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<{ id: string; title: string; url: string }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -245,6 +255,32 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const isGif = file.type.includes("gif") || file.name?.endsWith(".gif");
+              onSendMessage({
+                text: isGif ? "👾 Keyboard GIF" : "📷 Pasted Image",
+                type: isGif ? "gif" : "image",
+                mediaUrl: reader.result as string,
+                mediaName: file.name || (isGif ? "keyboard.gif" : "pasted.png")
+              });
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+      }
     }
   };
 
@@ -443,7 +479,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
           <button
             onClick={() => onStartCall("voice")}
             title="Start Voice Call"
@@ -458,7 +494,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           >
             <Video className="w-4 h-4" />
           </button>
-          {conversation.type === "group" && (
+          {conversation.type === "group" ? (
             <button
               onClick={onOpenGroupSettings}
               title="Group Info & Settings"
@@ -466,6 +502,55 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             >
               <Info className="w-4 h-4" />
             </button>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                title="Chat Options"
+                className="p-2.5 rounded-xl text-slate-300 hover:text-pink-400 hover:bg-slate-800 transition-colors"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+
+              {showHeaderMenu && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[#0b0f24] border border-slate-800 rounded-2xl p-1.5 shadow-2xl z-30 space-y-1">
+                  {otherUserId && onBlockUser && (
+                    <button
+                      onClick={() => {
+                        onBlockUser(otherUserId);
+                        setShowHeaderMenu(false);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-slate-800 text-slate-200 transition-colors"
+                    >
+                      {currentUser.blockedUserIds?.includes(otherUserId) ? (
+                        <>
+                          <UserCheck className="w-4 h-4 text-emerald-400" />
+                          <span>Unblock User</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserX className="w-4 h-4 text-amber-400" />
+                          <span>Block User</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {onDeleteConversation && (
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        setShowDeleteConfirmModal(true);
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-red-950/60 text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                      <span>Delete Chat</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -655,14 +740,32 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         </div>
                       )}
 
-                      {/* FILE CONTENT */}
+                      {/* FILE / DOCUMENT CONTENT */}
                       {msg.type === "file" && (
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-black/20 text-xs">
-                          <FileText className="w-5 h-5 text-pink-300 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold truncate">{msg.mediaName || "Document"}</p>
-                            <span className="text-[10px] opacity-70">{msg.mediaSize}</span>
+                        <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/30 border border-white/10 text-xs my-1 shadow-inner">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="p-2 rounded-lg bg-pink-500/20 text-pink-300 shrink-0">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold truncate text-white">{msg.mediaName || "Document"}</p>
+                              <span className="text-[10px] opacity-75 font-medium">{msg.mediaSize || "Attachment"}</span>
+                            </div>
                           </div>
+                          {msg.mediaUrl ? (
+                            <a
+                              href={msg.mediaUrl}
+                              download={msg.mediaName || "document.pdf"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-lg flex items-center gap-1 font-bold text-[11px] shadow-md shadow-pink-500/20 transition-all shrink-0 active:scale-95 cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download</span>
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-amber-400 font-semibold">No URL</span>
+                          )}
                         </div>
                       )}
                     </>
@@ -876,10 +979,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <div className="flex-1 relative">
             <input
               type="text"
-              placeholder="Type a message..."
+              placeholder="Type a message or paste GIF/Image from keyboard..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
             />
           </div>
@@ -1095,6 +1199,40 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Delete Chat Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0b0f24] border border-red-500/40 rounded-3xl p-6 w-full max-w-sm text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-400 font-extrabold text-base">
+              <Trash2 className="w-5 h-5 shrink-0" />
+              <span>Delete Chat Conversation?</span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to delete this conversation? All messages in this chat will be removed permanently.
+            </p>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmModal(false);
+                  if (onDeleteConversation) {
+                    onDeleteConversation(conversation.id);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 transition-all active:scale-95"
+              >
+                Yes, Delete Chat
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

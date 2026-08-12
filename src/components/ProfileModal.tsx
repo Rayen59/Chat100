@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { User } from "../types";
-import { X, LogOut, Trash2, ImageIcon, AlertTriangle } from "lucide-react";
+import { X, LogOut, Trash2, ImageIcon, AlertTriangle, Upload, Check } from "lucide-react";
 
 interface ProfileModalProps {
   currentUser: User;
@@ -34,6 +34,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [customAvatar, setCustomAvatar] = useState("");
   const [saving, setSaving] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        setAvatar(base64Url);
+        setCustomAvatar(base64Url);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,6 +151,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 className="w-full bg-[#050814] border border-slate-800 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               />
             </div>
+
+            {/* Gallery Upload Button */}
+            <input
+              type="file"
+              ref={galleryInputRef}
+              accept="image/*"
+              onChange={handleGalleryUpload}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-full mt-2 py-2.5 px-3 bg-[#121838] hover:bg-[#1a224a] text-red-300 hover:text-white border border-red-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+            >
+              <Upload className="w-4 h-4 text-red-400" />
+              <span>Choose Photo from Gallery (Galerie)</span>
+            </button>
           </div>
 
           <button

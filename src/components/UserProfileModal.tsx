@@ -1,21 +1,24 @@
 import React from "react";
 import { User } from "../types";
-import { X, MessageSquare, Mail, ShieldCheck, Sparkles, Circle } from "lucide-react";
+import { X, MessageSquare, Mail, ShieldCheck, Sparkles, Circle, UserX, UserCheck } from "lucide-react";
 
 interface UserProfileModalProps {
   user: User;
   currentUser: User;
   onClose: () => void;
   onStartDM: (userId: string) => void;
+  onBlockUser?: (userId: string) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   user,
   currentUser,
   onClose,
-  onStartDM
+  onStartDM,
+  onBlockUser
 }) => {
   const isMe = user.id === currentUser.id;
+  const isBlocked = currentUser.blockedUserIds?.includes(user.id);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none animate-fadeIn">
@@ -81,18 +84,45 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           {!isMe ? (
-            <button
-              onClick={() => {
-                onClose();
-                onStartDM(user.id);
-              }}
-              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-indigo-700 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all active:scale-95"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Send Message (Démarrer une discussion)</span>
-            </button>
+            <div className="w-full space-y-2">
+              <button
+                onClick={() => {
+                  onClose();
+                  onStartDM(user.id);
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-indigo-700 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all active:scale-95"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Send Message (Démarrer une discussion)</span>
+              </button>
+
+              {onBlockUser && (
+                <button
+                  onClick={() => {
+                    onBlockUser(user.id);
+                  }}
+                  className={`w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all active:scale-95 ${
+                    isBlocked
+                      ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60"
+                      : "bg-red-950/40 border-red-800/40 text-red-400 hover:bg-red-900/60"
+                  }`}
+                >
+                  {isBlocked ? (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      <span>Unblock User</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserX className="w-4 h-4" />
+                      <span>Block User (Bloquer)</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           ) : (
             <div className="text-xs text-slate-500 font-medium">This is your profile</div>
           )}

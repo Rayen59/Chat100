@@ -8,6 +8,7 @@ export interface User {
   lastSeen?: string;
   createdAt: string;
   badges?: string[];
+  blockedUserIds?: string[];
 }
 
 export interface ReactionMap {

@@ -10,7 +10,8 @@ import {
   KeyRound,
   Lock,
   LogOut,
-  Flame
+  Flame,
+  Trash2
 } from "lucide-react";
 
 interface SidebarProps {
@@ -29,6 +30,7 @@ interface SidebarProps {
   onOpenAnalytics: () => void;
   onOpenProfile: () => void;
   onLogout: () => void;
+  onDeleteConversation?: (convId: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -46,7 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onJoinGroupClick,
   onOpenAnalytics,
   onOpenProfile,
-  onLogout
+  onLogout,
+  onDeleteConversation
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -278,6 +281,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </p>
                     </div>
+
+                    {onDeleteConversation && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete chat with ${name}?`)) {
+                            onDeleteConversation(conv.id);
+                          }
+                        }}
+                        title="Delete Chat"
+                        className="opacity-0 group-hover:opacity-100 p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-all shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </button>
                 );
               })

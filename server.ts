@@ -334,6 +334,39 @@ app.post("/api/conversations/dm", (req: Request, res: Response) => {
   return res.json({ conversation: conv });
 });
 
+// Delete conversation
+app.post("/api/conversations/delete", (req: Request, res: Response) => {
+  const { conversationId } = req.body;
+  if (!conversationId) return res.status(400).json({ error: "Missing conversationId" });
+
+  store.conversations = store.conversations.filter((c) => c.id !== conversationId);
+  store.messages = store.messages.filter((m) => m.conversationId !== conversationId);
+  saveStore();
+  broadcastEvent("conversation_deleted", { conversationId });
+  return res.json({ success: true });
+});
+
+// Block or unblock user
+app.post("/api/users/block", (req: Request, res: Response) => {
+  const { userId, targetUserId } = req.body;
+  if (!userId || !targetUserId) return res.status(400).json({ error: "Missing user parameters" });
+
+  const user = store.users.find((u) => u.id === userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  if (!user.blockedUserIds) user.blockedUserIds = [];
+
+  if (user.blockedUserIds.includes(targetUserId)) {
+    user.blockedUserIds = user.blockedUserIds.filter((id) => id !== targetUserId);
+  } else {
+    user.blockedUserIds.push(targetUserId);
+  }
+
+  saveStore();
+  broadcastEvent("user_blocked_status_changed", { userId, blockedUserIds: user.blockedUserIds });
+  return res.json({ success: true, blockedUserIds: user.blockedUserIds });
+});
+
 // 7. Get conversations for a user
 app.get("/api/conversations", (req: Request, res: Response) => {
   const userId = req.query.userId as string;

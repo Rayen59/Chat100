@@ -424,6 +424,44 @@ export default function App() {
     }
   };
 
+  // Delete Conversation
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!currentUser) return;
+    try {
+      await fetch("/api/conversations/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId })
+      });
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (activeConversationId === conversationId) {
+        setActiveConversationId(null);
+      }
+    } catch (err) {
+      console.error("Delete conversation error:", err);
+    }
+  };
+
+  // Block or Unblock User
+  const handleBlockUser = async (targetUserId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch("/api/users/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id, targetUserId })
+      });
+      const data = await res.json();
+      if (data.success && data.blockedUserIds) {
+        const updatedUser = { ...currentUser, blockedUserIds: data.blockedUserIds };
+        setCurrentUser(updatedUser);
+        localStorage.setItem("wavegram_user", JSON.stringify(updatedUser));
+      }
+    } catch (err) {
+      console.error("Block user error:", err);
+    }
+  };
+
   // Join Group
   const handleJoinGroup = async (inviteCode: string, password?: string) => {
     if (!currentUser) return;
@@ -614,6 +652,7 @@ export default function App() {
           }}
           onOpenProfile={() => setShowProfileModal(true)}
           onLogout={handleLogout}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
 
@@ -642,6 +681,8 @@ export default function App() {
             onOpenGroupSettings={() => setGroupModalState({ open: true, mode: "manage" })}
             onSelectUserProfile={(user) => setSelectedUserProfile(user)}
             onBackMobile={() => setMobileShowChat(false)}
+            onDeleteConversation={handleDeleteConversation}
+            onBlockUser={handleBlockUser}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 select-none bg-[#050814]">
@@ -692,6 +733,7 @@ export default function App() {
           onStartDM={(targetUserId) => {
             handleStartDMWithUser(targetUserId);
           }}
+          onBlockUser={handleBlockUser}
         />
       )}
 
