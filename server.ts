@@ -413,15 +413,28 @@ app.get("/api/messages/:conversationId", (req: Request, res: Response) => {
       (m) => !m.deletedForUsers || !m.deletedForUsers.includes(userId)
     );
 
-    // If this is a group with onlyAdminMessagesVisible enabled and user is not an admin
+    // If this is a group
     if (conv.type === "group" && conv.groupId) {
       const group = store.groups.find((g) => g.id === conv.groupId);
-      if (group && (group.onlyAdminMessagesVisible || group.announcementMode)) {
-        const isAdmin = group.adminIds.includes(userId);
-        if (!isAdmin) {
+      if (group) {
+        const isAdmin = group.adminIds.includes(userId) || group.creatorId === userId;
+
+        // Check if history is hidden for new members (non-admins)
+        if (group.historyVisibleToNewMembers === false && !isAdmin) {
+          const userJoinedAt = group.memberJoinedAt?.[userId] || group.createdAt;
+          const joinedTime = new Date(userJoinedAt).getTime();
           messages = messages.filter(
-            (m) => m.isSystem || group.adminIds.includes(m.senderId) || m.senderId === userId
+            (m) => m.isSystem || new Date(m.createdAt).getTime() >= joinedTime
           );
+        }
+
+        // If this is a group with onlyAdminMessagesVisible enabled and user is not an admin
+        if (group.onlyAdminMessagesVisible || group.announcementMode) {
+          if (!isAdmin) {
+            messages = messages.filter(
+              (m) => m.isSystem || group.adminIds.includes(m.senderId) || m.senderId === userId
+            );
+          }
         }
       }
     }
@@ -430,7 +443,7 @@ app.get("/api/messages/:conversationId", (req: Request, res: Response) => {
   return res.json({ messages });
 });
 
-// 9. Send Message
+// 9. Send Message (supports text, image, video, audio, voice, file, gif, poll)
 app.post("/api/messages/send", (req: Request, res: Response) => {
   const {
     conversationId,
@@ -441,7 +454,8 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
     mediaName,
     mediaSize,
     duration,
-    replyTo
+    replyTo,
+    poll
   } = req.body;
 
   const sender = store.users.find((u) => u.id === senderId);
@@ -477,7 +491,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
     }
 
     if (group) {
-      const isAdmin = group.adminIds.includes(senderId);
+      const isAdmin = group.adminIds.includes(senderId) || group.creatorId === senderId;
 
       // Check Announcement Mode (only admins can post)
       if (group.announcementMode && !isAdmin) {
@@ -488,7 +502,31 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
       if (group.restrictedMemberIds?.includes(senderId)) {
         return res.status(403).json({ error: "You have been restricted to read-only mode by a group admin." });
       }
+
+      // If poll creation, only admins can create polls
+      if (type === "poll" && !isAdmin) {
+        return res.status(403).json({ error: "Only group admins can create polls and votes." });
+      }
     }
+  }
+
+  let formattedPoll = undefined;
+  if (type === "poll" && poll) {
+    formattedPoll = {
+      id: "poll_" + Math.random().toString(36).substring(2, 10),
+      question: poll.question,
+      options: (poll.options || []).map((opt: any, index: number) => ({
+        id: opt.id || "opt_" + index + "_" + Math.random().toString(36).substring(2, 6),
+        text: typeof opt === "string" ? opt : opt.text,
+        voterIds: []
+      })),
+      creatorId: senderId,
+      creatorName: sender.username,
+      allowMultipleAnswers: !!poll.allowMultipleAnswers,
+      isClosed: false,
+      totalVotes: 0,
+      createdAt: new Date().toISOString()
+    };
   }
 
   const newMessage: Message = {
@@ -497,7 +535,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
     senderId,
     senderName: sender.username,
     senderAvatar: sender.avatar,
-    text: text || "",
+    text: text || (type === "poll" ? formattedPoll?.question || "Poll" : ""),
     type,
     mediaUrl,
     mediaName,
@@ -506,6 +544,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
     reactions: {},
     likes: [],
     replyTo,
+    poll: formattedPoll,
     createdAt: new Date().toISOString()
   };
 
@@ -516,6 +555,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   if (type === "voice") previewText = "🎤 Voice note";
   if (type === "image") previewText = "📷 Image";
   if (type === "gif") previewText = "👾 GIF";
+  if (type === "poll") previewText = `📊 Poll: ${formattedPoll?.question || "New Vote"}`;
 
   conv.lastMessage = {
     text: previewText,
@@ -530,6 +570,77 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   broadcastEvent("new_message", newMessage);
 
   return res.json({ message: newMessage });
+});
+
+// Poll Vote Endpoint
+app.post("/api/messages/poll/vote", (req: Request, res: Response) => {
+  const { messageId, userId, optionId } = req.body;
+  if (!messageId || !userId || !optionId) {
+    return res.status(400).json({ error: "Missing required poll parameters." });
+  }
+
+  const msg = store.messages.find((m) => m.id === messageId);
+  if (!msg || !msg.poll) return res.status(404).json({ error: "Poll message not found." });
+
+  if (msg.poll.isClosed) {
+    return res.status(400).json({ error: "This poll has been closed." });
+  }
+
+  const poll = msg.poll;
+  const targetOption = poll.options.find((o) => o.id === optionId);
+  if (!targetOption) return res.status(404).json({ error: "Option not found." });
+
+  if (poll.allowMultipleAnswers) {
+    // Toggle vote on this option
+    if (targetOption.voterIds.includes(userId)) {
+      targetOption.voterIds = targetOption.voterIds.filter((id) => id !== userId);
+    } else {
+      targetOption.voterIds.push(userId);
+    }
+  } else {
+    // Single choice mode:
+    const alreadyVotedTarget = targetOption.voterIds.includes(userId);
+    // Remove user from all options
+    poll.options.forEach((opt) => {
+      opt.voterIds = opt.voterIds.filter((id) => id !== userId);
+    });
+    // If they were not already on this option, select it; if they were, it deselects
+    if (!alreadyVotedTarget) {
+      targetOption.voterIds.push(userId);
+    }
+  }
+
+  // Recalculate unique total voters
+  const allVoterIds = new Set<string>();
+  poll.options.forEach((opt) => {
+    opt.voterIds.forEach((id) => allVoterIds.add(id));
+  });
+  poll.totalVotes = allVoterIds.size;
+
+  saveStore();
+  broadcastEvent("message_updated", msg);
+  return res.json({ message: msg });
+});
+
+// Poll Close Endpoint (Admin Only)
+app.post("/api/messages/poll/close", (req: Request, res: Response) => {
+  const { messageId, userId } = req.body;
+  const msg = store.messages.find((m) => m.id === messageId);
+  if (!msg || !msg.poll) return res.status(404).json({ error: "Poll not found." });
+
+  const conv = store.conversations.find((c) => c.id === msg.conversationId);
+  if (conv && conv.groupId) {
+    const group = store.groups.find((g) => g.id === conv.groupId);
+    const isAdmin = group?.adminIds.includes(userId) || group?.creatorId === userId || msg.senderId === userId;
+    if (!isAdmin) {
+      return res.status(403).json({ error: "Only admins can close the poll." });
+    }
+  }
+
+  msg.poll.isClosed = true;
+  saveStore();
+  broadcastEvent("message_updated", msg);
+  return res.json({ message: msg });
 });
 
 // 10. Message Interactions: Like / Double Click / Reactions (>20 emojis support)
@@ -632,7 +743,8 @@ app.post("/api/groups/create", (req: Request, res: Response) => {
     avatar,
     isPrivate,
     password,
-    themeColor
+    themeColor,
+    historyVisibleToNewMembers = true
   } = req.body;
 
   if (!name || !creatorId) {
@@ -641,6 +753,7 @@ app.post("/api/groups/create", (req: Request, res: Response) => {
 
   const creator = store.users.find((u) => u.id === creatorId);
   const inviteCode = "WAVE-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const now = new Date().toISOString();
 
   const newGroup: Group = {
     id: "group_" + Math.random().toString(36).substring(2, 10),
@@ -657,7 +770,10 @@ app.post("/api/groups/create", (req: Request, res: Response) => {
     inviteCode,
     themeColor: themeColor || "#ec4899",
     badges: [{ userId: creatorId, badgeName: "Owner", color: "#f59e0b" }],
-    createdAt: new Date().toISOString()
+    photoChangeHistory: [],
+    historyVisibleToNewMembers: historyVisibleToNewMembers ?? true,
+    memberJoinedAt: { [creatorId]: now },
+    createdAt: now
   };
 
   store.groups.push(newGroup);
@@ -700,8 +816,11 @@ app.post("/api/groups/join", (req: Request, res: Response) => {
     return res.status(401).json({ error: "Incorrect group password." });
   }
 
+  if (!group.memberJoinedAt) group.memberJoinedAt = {};
+
   if (!group.memberIds.includes(userId)) {
     group.memberIds.push(userId);
+    group.memberJoinedAt[userId] = new Date().toISOString();
 
     // Add to conversation
     const conv = store.conversations.find((c) => c.groupId === group.id);
@@ -718,7 +837,7 @@ app.post("/api/groups/join", (req: Request, res: Response) => {
 
 // 15. Manage Group Members, Badges, Restrictions & Announcement Mode
 app.post("/api/groups/members", (req: Request, res: Response) => {
-  const { groupId, requesterId, targetUserId, targetUserIds, action, badgeName, badgeColor } = req.body;
+  const { groupId, requesterId, targetUserId, targetUserIds, action, badgeName, badgeColor, avatar } = req.body;
   const group = store.groups.find((g) => g.id === groupId);
   if (!group) return res.status(404).json({ error: "Group not found" });
 
@@ -760,13 +879,44 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
   };
 
   if (action === "add") {
+    if (!group.memberJoinedAt) group.memberJoinedAt = {};
     if (!group.memberIds.includes(targetUserId)) {
       group.memberIds.push(targetUserId);
+      group.memberJoinedAt[targetUserId] = new Date().toISOString();
       if (conv && !conv.participants.includes(targetUserId)) {
         conv.participants.push(targetUserId);
       }
       const targetUser = store.users.find((u) => u.id === targetUserId);
       addSystemMessage(`${targetUser?.username || "New member"} was added to the group by ${requesterName}.`);
+    }
+  } else if (action === "update_avatar") {
+    // 5 changes per 48 hours (2 days) rule
+    if (!group.photoChangeHistory) group.photoChangeHistory = [];
+    const twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
+    // Clean up timestamps older than 48 hours
+    const recentChanges = group.photoChangeHistory.filter((ts) => new Date(ts).getTime() >= twoDaysAgo);
+
+    if (recentChanges.length >= 5) {
+      // Find when the oldest change within the window will expire
+      const oldestChange = new Date(recentChanges[0]).getTime();
+      const resetTimeRemainingHours = Math.ceil((oldestChange + 48 * 3600 * 1000 - Date.now()) / (3600 * 1000));
+      return res.status(429).json({
+        error: `Photo change limit reached: Group photo can only be changed 5 times every 2 days. Try again in ~${resetTimeRemainingHours} hour(s).`
+      });
+    }
+
+    if (avatar) {
+      group.avatar = avatar;
+      recentChanges.push(new Date().toISOString());
+      group.photoChangeHistory = recentChanges;
+      addSystemMessage(`Admin ${requesterName} updated the group photo.`);
+    }
+  } else if (action === "toggle_history_visibility") {
+    group.historyVisibleToNewMembers = group.historyVisibleToNewMembers === false ? true : false;
+    if (group.historyVisibleToNewMembers) {
+      addSystemMessage(`Admin ${requesterName} enabled past chat history for new members.`);
+    } else {
+      addSystemMessage(`Admin ${requesterName} hid past chat history for new members (only new messages will be visible).`);
     }
   } else if (action === "remove") {
     if (targetUserId === group.creatorId) {

@@ -37,7 +37,13 @@ import {
   ShieldAlert,
   UserX,
   UserCheck,
-  Megaphone
+  Megaphone,
+  BarChart2,
+  Check,
+  Plus,
+  Trash,
+  ShieldCheck,
+  Crown
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
@@ -52,12 +58,17 @@ interface ChatRoomProps {
   group?: Group;
   onSendMessage: (payload: {
     text?: string;
-    type?: "text" | "image" | "video" | "audio" | "voice" | "file" | "gif";
+    type?: "text" | "image" | "video" | "audio" | "voice" | "file" | "gif" | "poll";
     mediaUrl?: string;
     mediaName?: string;
     mediaSize?: string;
     duration?: number;
     replyTo?: ReplyToMessage;
+    poll?: {
+      question: string;
+      options: { text: string }[] | string[];
+      allowMultipleAnswers?: boolean;
+    };
   }) => void;
   onReactMessage: (messageId: string, emoji?: string, isDoubleTapLike?: boolean) => void;
   onEditMessage: (messageId: string, newText: string) => void;
@@ -115,6 +126,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [contextMenuMsg, setContextMenuMsg] = useState<Message | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
   const [heartParticles, setHeartParticles] = useState<{ id: string; msgId: string; emoji: string; x: number; y: number }[]>([]);
+
+  // Poll state variables
+  const [showCreatePollModal, setShowCreatePollModal] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
+  const [activePollMsg, setActivePollMsg] = useState<Message | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -261,6 +279,60 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     if (textareaRef.current) {
       textareaRef.current.style.height = "42px";
     }
+  };
+
+  // Poll Handlers
+  const handleVotePollOption = async (messageId: string, optionId: string) => {
+    try {
+      await fetch("/api/messages/poll/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, userId: currentUser.id, optionId })
+      });
+    } catch (err) {
+      console.error("Poll vote error:", err);
+    }
+  };
+
+  const handleClosePoll = async (messageId: string) => {
+    try {
+      const res = await fetch("/api/messages/poll/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, userId: currentUser.id })
+      });
+      const data = await res.json();
+      if (data.message && activePollMsg?.id === messageId) {
+        setActivePollMsg(data.message);
+      }
+    } catch (err) {
+      console.error("Poll close error:", err);
+    }
+  };
+
+  const handleCreatePoll = () => {
+    const trimmedQ = pollQuestion.trim();
+    const validOptions = pollOptions.map((o) => o.trim()).filter((o) => o.length > 0);
+    if (!trimmedQ || validOptions.length < 2) return;
+
+    onSendMessage({
+      text: `📊 Poll: ${trimmedQ}`,
+      type: "poll",
+      poll: {
+        question: trimmedQ,
+        options: validOptions.map((optText, idx) => ({
+          id: "opt_" + idx + "_" + Math.random().toString(36).substring(2, 6),
+          text: optText,
+          voterIds: []
+        })),
+        allowMultipleAnswers: pollAllowMultiple
+      }
+    });
+
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+    setPollAllowMultiple(false);
+    setShowCreatePollModal(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -628,15 +700,20 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         onSelectUserProfile(senderUser);
                       }
                     }}
-                    className="text-[10px] font-bold text-blue-400 hover:underline mb-0.5 ml-1 text-left"
+                    style={{ color: group?.themeColor || "#60a5fa" }}
+                    className="text-[10px] font-bold hover:underline mb-0.5 ml-1 text-left flex items-center gap-1"
                   >
-                    {msg.senderName}
+                    <span>{msg.senderName}</span>
+                    {group && (group.creatorId === msg.senderId || group.adminIds?.includes(msg.senderId)) && (
+                      <ShieldCheck className="w-3 h-3 text-cyan-400 inline" />
+                    )}
                   </button>
                 )}
 
                 {/* Quoted Reply if any */}
                 {msg.replyTo && (
                   <div
+                    style={group?.themeColor ? { borderLeftColor: group.themeColor } : undefined}
                     className={`max-w-[80%] text-[11px] p-2 rounded-xl mb-1 border-l-2 bg-[#09112a] text-slate-300 ${
                       isMe ? "border-blue-500" : "border-indigo-500"
                     }`}
@@ -671,14 +748,24 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   onTouchStart={() => handleTouchStart(msg)}
                   onTouchEnd={handleTouchEnd}
                   style={
-                    isMe && group?.themeColor
+                    isMe
+                      ? group?.themeColor
+                        ? {
+                            background: `linear-gradient(135deg, ${group.themeColor}, #0f172a)`,
+                            boxShadow: `0 4px 20px ${group.themeColor}33`,
+                            border: `1px solid ${group.themeColor}60`
+                          }
+                        : undefined
+                      : group?.themeColor
                       ? {
-                          background: `linear-gradient(135deg, ${group.themeColor}, #1e1b4b)`,
-                          boxShadow: `0 4px 20px ${group.themeColor}33`
+                          borderLeft: `3px solid ${group.themeColor}`,
+                          borderColor: `${group.themeColor}44`,
+                          background: `rgba(9, 17, 42, 0.95)`,
+                          boxShadow: `0 2px 14px ${group.themeColor}1a`
                         }
                       : undefined
                   }
-                  className={`relative max-w-[82%] sm:max-w-[70%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
+                  className={`relative max-w-[88%] sm:max-w-[75%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
                     isMe
                       ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-br-none shadow-blue-600/20"
                       : "bg-[#09112a] border border-blue-900/40 text-slate-100 rounded-bl-none hover:border-blue-800/60"
@@ -720,6 +807,117 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     <>
                       {/* TEXT CONTENT */}
                       {msg.type === "text" && <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>}
+
+                      {/* POLL & VOTE CONTENT */}
+                      {msg.type === "poll" && msg.poll && (
+                        <div className="w-full min-w-[260px] sm:min-w-[320px] p-3 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+                          {/* Poll Header */}
+                          <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="p-1.5 rounded-lg text-white shrink-0"
+                                style={{ backgroundColor: group?.themeColor || "#3b82f6" }}
+                              >
+                                <BarChart2 className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-sm text-white leading-snug">{msg.poll.question}</h4>
+                                <p className="text-[10px] text-slate-400">
+                                  Poll by <span className="font-medium text-slate-300">{msg.poll.creatorName}</span>
+                                </p>
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
+                                msg.poll.isClosed
+                                  ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                                  : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                              }`}
+                            >
+                              {msg.poll.isClosed ? "Closed" : "Live"}
+                            </span>
+                          </div>
+
+                          {/* Options List */}
+                          <div className="space-y-2">
+                            {msg.poll.options.map((option) => {
+                              const totalVotes = msg.poll!.totalVotes || 0;
+                              const optionVotes = option.voterIds?.length || 0;
+                              const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+                              const hasVoted = option.voterIds?.includes(currentUser.id);
+
+                              return (
+                                <button
+                                  key={option.id}
+                                  disabled={msg.poll!.isClosed}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVotePollOption(msg.id, option.id);
+                                  }}
+                                  className={`w-full relative overflow-hidden rounded-xl p-2.5 text-left border transition-all ${
+                                    hasVoted
+                                      ? "border-blue-400 bg-blue-950/40 ring-1 ring-blue-400/50"
+                                      : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/25"
+                                  } ${msg.poll!.isClosed ? "cursor-default opacity-90" : "cursor-pointer active:scale-[0.99]"}`}
+                                >
+                                  {/* Background animated percentage fill bar */}
+                                  <div
+                                    className="absolute left-0 top-0 bottom-0 opacity-30 transition-all duration-500"
+                                    style={{
+                                      width: `${percentage}%`,
+                                      backgroundColor: group?.themeColor || "#3b82f6"
+                                    }}
+                                  />
+
+                                  <div className="relative flex items-center justify-between z-10 gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div
+                                        className={`w-4 h-4 rounded-${
+                                          msg.poll!.allowMultipleAnswers ? "md" : "full"
+                                        } border flex items-center justify-center shrink-0 transition-colors ${
+                                          hasVoted
+                                            ? "border-transparent text-white"
+                                            : "border-white/40 bg-transparent"
+                                        }`}
+                                        style={{
+                                          backgroundColor: hasVoted ? (group?.themeColor || "#3b82f6") : undefined
+                                        }}
+                                      >
+                                        {hasVoted && <Check className="w-3 h-3 stroke-[3]" />}
+                                      </div>
+                                      <span className="text-xs font-semibold text-white truncate">{option.text}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 text-right">
+                                      <span className="text-[11px] font-bold text-white/90">{percentage}%</span>
+                                      <span className="text-[10px] text-slate-400">
+                                        ({optionVotes})
+                                      </span>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Footer Info & Admin/Members Stats Toggle */}
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-white/5">
+                            <span>
+                              {msg.poll.totalVotes} voter{msg.poll.totalVotes !== 1 ? "s" : ""} •{" "}
+                              {msg.poll.allowMultipleAnswers ? "Multiple votes" : "Single choice"}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePollMsg(msg);
+                              }}
+                              className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline"
+                            >
+                              <BarChart2 className="w-3.5 h-3.5" />
+                              <span>{isGroupAdmin ? "Admin Details & Stats" : "View Numbers"}</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* IMAGE CONTENT */}
                       {msg.type === "image" && msg.mediaUrl && (
@@ -1045,6 +1243,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             GIF
           </button>
 
+          {conversation.type === "group" && isGroupAdmin && (
+            <button
+              onClick={() => setShowCreatePollModal(true)}
+              title="Create Poll & Vote (Admin Only)"
+              className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/40 rounded-xl transition-colors font-bold text-xs border border-cyan-800/50 px-2.5 flex items-center gap-1.5 shrink-0 shadow-sm shadow-cyan-900/20"
+            >
+              <BarChart2 className="w-4 h-4 text-cyan-400" />
+              <span className="hidden sm:inline">Poll</span>
+            </button>
+          )}
+
           {isRecording ? (
             <div className="flex-1 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 flex items-center justify-between text-rose-300 text-xs">
               <div className="flex items-center gap-2">
@@ -1145,6 +1354,297 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Create Poll Modal */}
+      {showCreatePollModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-md p-4">
+          <div className="bg-[#09112a] border border-cyan-500/40 rounded-3xl p-6 w-full max-w-md text-slate-100 shadow-[0_0_50px_rgba(6,182,212,0.25)] space-y-4">
+            <div className="flex items-center justify-between border-b border-blue-950 pb-3">
+              <div className="flex items-center gap-2">
+                <div
+                  className="p-2 rounded-xl text-white shadow-md"
+                  style={{ backgroundColor: group?.themeColor || "#06b6d4" }}
+                >
+                  <BarChart2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-100">Create Group Poll</h3>
+                  <p className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Admin Exclusive Feature
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreatePollModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Question input */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1.5">Poll Question</label>
+              <input
+                type="text"
+                placeholder="e.g. When should we schedule our team meetup?"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                className="w-full bg-[#050a1b] border border-blue-900/60 rounded-xl py-2.5 px-3.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            {/* Options list */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1.5">
+                Options (Min 2, Max 6)
+              </label>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {pollOptions.map((opt, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Option ${index + 1}`}
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...pollOptions];
+                        newOpts[index] = e.target.value;
+                        setPollOptions(newOpts);
+                      }}
+                      className="flex-1 bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        onClick={() => {
+                          setPollOptions(pollOptions.filter((_, i) => i !== index));
+                        }}
+                        className="p-2 text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {pollOptions.length < 6 && (
+                <button
+                  type="button"
+                  onClick={() => setPollOptions([...pollOptions, ""])}
+                  className="mt-2 text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 py-1 px-2 rounded-lg hover:bg-cyan-950/30 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Option</span>
+                </button>
+              )}
+            </div>
+
+            {/* Poll Configuration */}
+            <div className="pt-2 border-t border-blue-950 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-slate-200 block">Multiple Answers</span>
+                <span className="text-[10px] text-slate-400">Allow members to select more than one choice</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={pollAllowMultiple}
+                onChange={(e) => setPollAllowMultiple(e.target.checked)}
+                className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-500 bg-[#050a1b] border-blue-900 cursor-pointer"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                disabled={!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
+                onClick={handleCreatePoll}
+                style={
+                  group?.themeColor
+                    ? {
+                        background: `linear-gradient(135deg, ${group.themeColor}, #0284c7)`
+                      }
+                    : undefined
+                }
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 disabled:opacity-40 transition-all active:scale-95"
+              >
+                Launch Poll & Vote
+              </button>
+              <button
+                onClick={() => setShowCreatePollModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-[#050a1b] hover:bg-[#0c1636] text-slate-300 font-semibold text-xs border border-blue-950 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Poll Statistics & Voter Breakdown Modal (Admins see detailed names/avatars; members see aggregated numbers) */}
+      {activePollMsg && activePollMsg.poll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-md p-4">
+          <div className="bg-[#09112a] border border-blue-500/30 rounded-3xl p-6 w-full max-w-lg text-slate-100 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-blue-950 pb-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div
+                  className="p-2.5 rounded-2xl text-white shadow-lg shrink-0"
+                  style={{ backgroundColor: group?.themeColor || "#3b82f6" }}
+                >
+                  <BarChart2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white leading-snug">{activePollMsg.poll.question}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] text-slate-400">
+                      {activePollMsg.poll.totalVotes} total voter{activePollMsg.poll.totalVotes !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-[10px] text-slate-500">•</span>
+                    <span
+                      className={`px-2 py-0.2 text-[9px] font-bold rounded-full border ${
+                        activePollMsg.poll.isClosed
+                          ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                          : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      }`}
+                    >
+                      {activePollMsg.poll.isClosed ? "Closed" : "Live Poll"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setActivePollMsg(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Member vs Admin Banner */}
+            {isGroupAdmin ? (
+              <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-800/40 flex items-center gap-2 text-cyan-300 text-[11px] shrink-0">
+                <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>
+                  <strong>Admin View:</strong> You have full visibility into voter identities, timestamps, and individual option selections.
+                </span>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/40 flex items-center gap-2 text-blue-300 text-[11px] shrink-0">
+                <Lock className="w-4 h-4 text-blue-400 shrink-0" />
+                <span>
+                  <strong>Confidential Poll:</strong> Only numerical statistics are displayed. Voter identities are private to group administrators.
+                </span>
+              </div>
+            )}
+
+            {/* Options Breakdown List */}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {activePollMsg.poll.options.map((option) => {
+                const totalVotes = activePollMsg.poll!.totalVotes || 0;
+                const optionVotes = option.voterIds?.length || 0;
+                const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+
+                return (
+                  <div key={option.id} className="p-3.5 rounded-2xl bg-[#050a1b] border border-blue-950 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-200">{option.text}</span>
+                      <div className="flex items-center gap-2 font-mono">
+                        <span className="text-cyan-400 font-bold">{percentage}%</span>
+                        <span className="text-slate-400 text-[11px]">
+                          ({optionVotes} vote{optionVotes !== 1 ? "s" : ""})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${percentage}%`,
+                          backgroundColor: group?.themeColor || "#06b6d4"
+                        }}
+                      />
+                    </div>
+
+                    {/* Admin detailed voters list */}
+                    {isGroupAdmin && option.voterIds && option.voterIds.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-950/70 space-y-1.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Voters ({option.voterIds.length}):
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {option.voterIds.map((voterId) => {
+                            const voterUser = allUsers.find((u) => u.id === voterId);
+                            const isVoterCreator = group?.creatorId === voterId;
+                            const isVoterAdmin = group?.adminIds?.includes(voterId);
+
+                            return (
+                              <div
+                                key={voterId}
+                                className="flex items-center gap-2 p-1.5 rounded-xl bg-blue-950/30 border border-blue-900/40 text-xs"
+                              >
+                                <img
+                                  src={
+                                    voterUser?.avatar ||
+                                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${voterId}`
+                                  }
+                                  alt={voterUser?.username || "Voter"}
+                                  className="w-6 h-6 rounded-full object-cover bg-slate-800 shrink-0 ring-1 ring-white/10"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-semibold text-slate-200 truncate text-[11px]">
+                                      {voterUser?.username || "User " + voterId.slice(0, 5)}
+                                    </span>
+                                    {isVoterCreator ? (
+                                      <span title="Group Creator">
+                                        <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                                      </span>
+                                    ) : isVoterAdmin ? (
+                                      <span title="Group Admin">
+                                        <ShieldCheck className="w-3 h-3 text-cyan-400 shrink-0" />
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <span className="text-[9px] text-slate-500 truncate block">
+                                    {voterUser?.email || "Participant"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer Admin Actions */}
+            <div className="pt-2 border-t border-blue-950 flex items-center justify-between shrink-0">
+              {isGroupAdmin && !activePollMsg.poll.isClosed ? (
+                <button
+                  onClick={() => handleClosePoll(activePollMsg.id)}
+                  className="px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 font-bold text-xs border border-rose-500/30 transition-colors flex items-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Close Poll Now</span>
+                </button>
+              ) : (
+                <div />
+              )}
+              <button
+                onClick={() => setActivePollMsg(null)}
+                className="px-4 py-2 rounded-xl bg-[#050a1b] hover:bg-[#0c1636] text-slate-200 font-semibold text-xs border border-blue-950 transition-colors"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

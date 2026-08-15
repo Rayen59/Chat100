@@ -22,6 +22,24 @@ export interface ReplyToMessage {
   type: string;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  voterIds: string[]; // user IDs who voted for this option
+}
+
+export interface PollData {
+  id: string;
+  question: string;
+  options: PollOption[];
+  creatorId: string;
+  creatorName: string;
+  allowMultipleAnswers?: boolean;
+  isClosed?: boolean;
+  totalVotes: number;
+  createdAt: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -29,7 +47,7 @@ export interface Message {
   senderName: string;
   senderAvatar: string;
   text: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'gif';
+  type: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'gif' | 'poll';
   mediaUrl?: string;
   mediaName?: string;
   mediaSize?: string;
@@ -37,6 +55,7 @@ export interface Message {
   reactions: ReactionMap;
   likes: string[]; // array of userIds who double-clicked / liked
   replyTo?: ReplyToMessage;
+  poll?: PollData;
   isEdited?: boolean;
   editedAt?: string;
   isDeletedForAll?: boolean;
@@ -67,6 +86,9 @@ export interface Group {
   inviteCode: string;
   themeColor: string; // e.g. '#ec4899', '#3b82f6', '#10b981'
   badges: GroupBadge[];
+  photoChangeHistory?: string[]; // ISO timestamps of photo updates (max 5 per 48h)
+  historyVisibleToNewMembers?: boolean; // When false, new members only see messages from after they joined
+  memberJoinedAt?: { [userId: string]: string }; // Timestamp when user joined the group
   createdAt: string;
 }
 

@@ -541,11 +541,15 @@ export default function App() {
       | "add_badge"
       | "restrict_member"
       | "toggle_announcement_mode"
+      | "toggle_history_visibility"
+      | "update_avatar"
+      | "update_theme"
       | "remove_bulk",
     targetUserId: string,
     badgeName?: string,
     badgeColor?: string,
-    targetUserIds?: string[]
+    targetUserIds?: string[],
+    avatar?: string
   ) => {
     const activeConv = conversations.find((c) => c.id === activeConversationId);
     if (!activeConv || !activeConv.groupId || !currentUser) return;
@@ -561,10 +565,23 @@ export default function App() {
           targetUserIds,
           action,
           badgeName,
-          badgeColor
+          badgeColor,
+          avatar
         })
       });
       const data = await res.json();
+      if (!res.ok) {
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "system",
+          title: "Group Setting Notice",
+          senderName: "Wavegram Security",
+          text: data.error || "Action could not be completed.",
+          createdAt: new Date().toISOString()
+        };
+        setNotifications((prev) => [...prev, notif]);
+        return;
+      }
       if (data.group) {
         setGroups((prev) => prev.map((g) => (g.id === data.group.id ? data.group : g)));
       }

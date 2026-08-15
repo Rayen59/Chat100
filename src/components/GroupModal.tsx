@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { User, Group } from "../types";
 import {
   X,
@@ -20,7 +20,13 @@ import {
   UserCheck,
   CheckSquare,
   Square,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  History,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Clock
 } from "lucide-react";
 
 interface GroupModalProps {
@@ -36,6 +42,7 @@ interface GroupModalProps {
     password?: string;
     themeColor: string;
     avatar: string;
+    historyVisibleToNewMembers?: boolean;
   }) => void;
   onJoinGroup: (inviteCode: string, password?: string) => void;
   onManageMembers: (
@@ -46,11 +53,15 @@ interface GroupModalProps {
       | "add_badge"
       | "restrict_member"
       | "toggle_announcement_mode"
+      | "toggle_history_visibility"
+      | "update_avatar"
+      | "update_theme"
       | "remove_bulk",
     targetUserId: string,
     badgeName?: string,
     badgeColor?: string,
-    targetUserIds?: string[]
+    targetUserIds?: string[],
+    avatar?: string
   ) => void;
   onBlockUser?: (targetUserId: string) => void;
 }
@@ -91,6 +102,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const [password, setPassword] = useState("");
   const [themeColor, setThemeColor] = useState(THEME_COLORS[0].hex);
   const [avatar, setAvatar] = useState(PRESET_GROUP_AVATARS[0]);
+  const [historyVisibleToNewMembers, setHistoryVisibleToNewMembers] = useState(true);
 
   // Join mode state
   const [inviteCodeInput, setInviteCodeInput] = useState("");
@@ -103,9 +115,22 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
   const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const createFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isCreator = group?.creatorId === currentUser.id;
-  const isAdmin = group?.adminIds.includes(currentUser.id);
+  const isAdmin = group?.adminIds.includes(currentUser.id) || isCreator;
+
+  // Rate Limiting Calculation: 5 photo changes per 48 hours
+  const twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000;
+  const recentPhotoChanges = (group?.photoChangeHistory || []).filter(
+    (ts) => new Date(ts).getTime() >= twoDaysAgo
+  );
+  const photoChangesUsed = recentPhotoChanges.length;
+  const photoChangesRemaining = Math.max(0, 5 - photoChangesUsed);
+  const isPhotoChangeLimitReached = photoChangesUsed >= 5;
 
   const handleCopyInvite = () => {
     if (!group) return;
@@ -137,6 +162,38 @@ export const GroupModal: React.FC<GroupModalProps> = ({
     onManageMembers("remove_bulk", "", undefined, undefined, selectedMemberIds);
     setSelectedMemberIds([]);
     setShowBulkRemoveConfirm(false);
+  };
+
+  // Upload Group Photo from Gallery (Manage Mode)
+  const handleGroupPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isPhotoChangeLimitReached) {
+      setPhotoError("Limit reached: You can only change the group photo 5 times every 2 days.");
+      return;
+    }
+
+    setPhotoError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      onManageMembers("update_avatar", "", undefined, undefined, undefined, result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Upload Group Photo from Gallery (Create Mode)
+  const handleCreatePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatar(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   return (
@@ -173,11 +230,64 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   isPrivate,
                   password: isPrivate ? password : undefined,
                   themeColor,
-                  avatar
+                  avatar,
+                  historyVisibleToNewMembers
                 });
               }}
               className="space-y-4"
             >
+              {/* Group Photo Selection & Gallery Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">Group Icon / Photo</label>
+                <div className="flex items-center gap-3">
+                  <div className="relative group/avatar shrink-0">
+                    <img
+                      src={avatar}
+                      alt="Selected Avatar"
+                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-blue-500/50 bg-slate-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => createFileInputRef.current?.click()}
+                      className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center text-white transition-opacity"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => createFileInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-500/30 rounded-xl text-xs font-semibold text-blue-300 flex items-center gap-1.5 transition-colors"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Upload from Gallery</span>
+                    </button>
+                    <input
+                      ref={createFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCreatePhotoUpload}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2">
+                      {PRESET_GROUP_AVATARS.map((pUrl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setAvatar(pUrl)}
+                          className={`w-7 h-7 rounded-lg overflow-hidden border-2 transition-all ${
+                            avatar === pUrl ? "border-blue-400 scale-110" : "border-transparent opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <img src={pUrl} alt="Preset" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Group Name</label>
                 <input
@@ -196,7 +306,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   placeholder="What is this group about?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none transition-all"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 h-16 resize-none transition-all"
                 />
               </div>
 
@@ -226,6 +336,34 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* History Visibility Setting for New Members */}
+              <div className="p-3 bg-[#0c1636] border border-blue-900/40 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-blue-950 text-blue-400">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-xs text-slate-200">Past Chat History</span>
+                    <p className="text-[10px] text-slate-400">
+                      {historyVisibleToNewMembers
+                        ? "New members can see full message history"
+                        : "New members only see messages sent after joining"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setHistoryVisibleToNewMembers(!historyVisibleToNewMembers)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    historyVisibleToNewMembers
+                      ? "bg-blue-600/30 text-blue-300 border border-blue-500/40"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {historyVisibleToNewMembers ? "Visible" : "Hidden"}
+                </button>
               </div>
 
               {/* Private Group Toggle & Password */}
@@ -325,12 +463,89 @@ export const GroupModal: React.FC<GroupModalProps> = ({
         {/* MANAGE GROUP MODE */}
         {mode === "manage" && group && (
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <img src={group.avatar} alt={group.name} className="w-14 h-14 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/30" />
-              <div>
-                <h2 className="text-xl font-bold text-slate-100">{group.name}</h2>
-                <p className="text-xs text-slate-400">{group.description || "Wavegram Community Group"}</p>
+            {/* Header with Group Photo, Gallery Upload & 5 Changes Rate Limiter */}
+            <div className="p-4 bg-[#0c1636] border border-blue-900/50 rounded-2xl">
+              <div className="flex items-start gap-4">
+                <div className="relative group/photo shrink-0">
+                  <img
+                    src={group.avatar}
+                    alt={group.name}
+                    className="w-16 h-16 rounded-2xl object-cover bg-slate-800 ring-2 shadow-lg"
+                    style={{ borderColor: group.themeColor || "#3b82f6" }}
+                  />
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        if (isPhotoChangeLimitReached) {
+                          setPhotoError("Limit reached: Group photo can only be changed 5 times every 2 days.");
+                        } else {
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover/photo:opacity-100 flex flex-col items-center justify-center text-white transition-opacity text-[10px] font-semibold"
+                    >
+                      <Camera className="w-5 h-5 mb-0.5" />
+                      <span>Change</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-slate-100 truncate">{group.name}</h2>
+                    <span
+                      className="w-3.5 h-3.5 rounded-full ring-2 ring-white/60 shadow shrink-0"
+                      style={{ backgroundColor: group.themeColor || "#3b82f6" }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{group.description || "Wavegram Community Group"}</p>
+
+                  {/* Photo Change Limit Indicator */}
+                  {isAdmin && (
+                    <div className="mt-2.5 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-blue-950">
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <Clock className={`w-3.5 h-3.5 ${isPhotoChangeLimitReached ? "text-rose-400" : "text-blue-400"}`} />
+                        <span className={isPhotoChangeLimitReached ? "text-rose-400 font-bold" : "text-slate-300"}>
+                          Photo changes: <strong className="text-white">{photoChangesRemaining}/5 left</strong> (48h window)
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (isPhotoChangeLimitReached) {
+                            setPhotoError("Limit reached: Group photo can only be changed 5 times every 2 days.");
+                          } else {
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                        disabled={isPhotoChangeLimitReached}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
+                          isPhotoChangeLimitReached
+                            ? "bg-rose-950/40 text-rose-400 border border-rose-800/40 opacity-70 cursor-not-allowed"
+                            : "bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30"
+                        }`}
+                      >
+                        <Camera className="w-3 h-3" />
+                        <span>Upload Photo</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleGroupPhotoUpload}
+                    className="hidden"
+                  />
+                </div>
               </div>
+
+              {photoError && (
+                <div className="mt-3 p-2.5 bg-rose-950/60 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{photoError}</span>
+                </div>
+              )}
             </div>
 
             {/* Invite Code Bar */}
@@ -356,12 +571,8 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold text-slate-200">Group Theme Color</span>
+                      <span className="text-xs font-bold text-slate-200">Group Theme Color (Applies to all sent & received messages)</span>
                     </div>
-                    <span
-                      className="w-3.5 h-3.5 rounded-full ring-2 ring-white/60 shadow"
-                      style={{ backgroundColor: group.themeColor || "#3b82f6" }}
-                    />
                   </div>
                   <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                     {THEME_COLORS.map((c) => (
@@ -385,7 +596,35 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-blue-950">
+                {/* History Visibility Toggle for New Members */}
+                <div className="flex items-center justify-between pt-3 border-t border-blue-950">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl ${group.historyVisibleToNewMembers !== false ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
+                      {group.historyVisibleToNewMembers !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">Chat History for New Members</h4>
+                      <p className="text-[11px] text-slate-400">
+                        {group.historyVisibleToNewMembers !== false
+                          ? "Visible: New members can view past messages before their join date."
+                          : "Hidden: New members only see messages sent after they join."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onManageMembers("toggle_history_visibility", "")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                      group.historyVisibleToNewMembers !== false
+                        ? "bg-blue-900/60 text-blue-300 hover:bg-blue-900"
+                        : "bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-600/20"
+                    }`}
+                  >
+                    {group.historyVisibleToNewMembers !== false ? "Visible" : "Hidden"}
+                  </button>
+                </div>
+
+                {/* Announcement Mode Toggle */}
+                <div className="flex items-center justify-between pt-3 border-t border-blue-950">
                   <div className="flex items-center gap-2.5">
                     <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40" : "bg-blue-950 text-slate-400"}`}>
                       <Megaphone className="w-4 h-4" />
@@ -401,7 +640,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   </div>
                   <button
                     onClick={() => onManageMembers("toggle_announcement_mode", "")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                       group.announcementMode
                         ? "bg-amber-500 text-black hover:bg-amber-400 shadow-md shadow-amber-500/20"
                         : "bg-blue-900/60 text-slate-200 hover:bg-blue-900"
