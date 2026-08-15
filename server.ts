@@ -393,6 +393,20 @@ app.get("/api/messages/:conversationId", (req: Request, res: Response) => {
     messages = messages.filter(
       (m) => !m.deletedForUsers || !m.deletedForUsers.includes(userId)
     );
+
+    // If this is a group with onlyAdminMessagesVisible enabled and user is not an admin
+    const conv = store.conversations.find((c) => c.id === conversationId);
+    if (conv && conv.type === "group" && conv.groupId) {
+      const group = store.groups.find((g) => g.id === conv.groupId);
+      if (group && (group.onlyAdminMessagesVisible || group.announcementMode)) {
+        const isAdmin = group.adminIds.includes(userId);
+        if (!isAdmin) {
+          messages = messages.filter(
+            (m) => m.isSystem || group.adminIds.includes(m.senderId) || m.senderId === userId
+          );
+        }
+      }
+    }
   }
 
   return res.json({ messages });
@@ -415,6 +429,41 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   const sender = store.users.find((u) => u.id === senderId);
   if (!sender) return res.status(404).json({ error: "Sender not found" });
 
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  if (!conv) return res.status(404).json({ error: "Conversation not found" });
+
+  // 1. If DM conversation, check if recipient has blocked sender
+  if (conv.type === "dm") {
+    const otherUserId = conv.participants.find((id) => id !== senderId);
+    if (otherUserId) {
+      const recipient = store.users.find((u) => u.id === otherUserId);
+      if (recipient?.blockedUserIds?.includes(senderId)) {
+        return res.status(403).json({ error: "You cannot message this user because you have been blocked." });
+      }
+      if (sender.blockedUserIds?.includes(otherUserId)) {
+        return res.status(400).json({ error: "You cannot send messages to a user you have blocked. Unblock them first." });
+      }
+    }
+  }
+
+  // 2. If Group conversation, check permissions
+  if (conv.type === "group" && conv.groupId) {
+    const group = store.groups.find((g) => g.id === conv.groupId);
+    if (group) {
+      const isAdmin = group.adminIds.includes(senderId);
+
+      // Check Announcement Mode (only admins can post)
+      if (group.announcementMode && !isAdmin) {
+        return res.status(403).json({ error: "Announcement Channel: Only group admins can send messages." });
+      }
+
+      // Check specific user restriction (muted / read-only)
+      if (group.restrictedMemberIds?.includes(senderId)) {
+        return res.status(403).json({ error: "You have been restricted to read-only mode by a group admin." });
+      }
+    }
+  }
+
   const newMessage: Message = {
     id: "msg_" + Math.random().toString(36).substring(2, 10),
     conversationId,
@@ -436,21 +485,18 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   store.messages.push(newMessage);
 
   // Update conversation last message
-  const conv = store.conversations.find((c) => c.id === conversationId);
-  if (conv) {
-    let previewText = text || "Sent a media file";
-    if (type === "voice") previewText = "🎤 Voice note";
-    if (type === "image") previewText = "📷 Image";
-    if (type === "gif") previewText = "👾 GIF";
+  let previewText = text || "Sent a media file";
+  if (type === "voice") previewText = "🎤 Voice note";
+  if (type === "image") previewText = "📷 Image";
+  if (type === "gif") previewText = "👾 GIF";
 
-    conv.lastMessage = {
-      text: previewText,
-      senderId,
-      senderName: sender.username,
-      createdAt: newMessage.createdAt
-    };
-    conv.updatedAt = newMessage.createdAt;
-  }
+  conv.lastMessage = {
+    text: previewText,
+    senderId,
+    senderName: sender.username,
+    createdAt: newMessage.createdAt
+  };
+  conv.updatedAt = newMessage.createdAt;
 
   saveStore();
 
@@ -643,12 +689,13 @@ app.post("/api/groups/join", (req: Request, res: Response) => {
   return res.json({ group, conversation: conv });
 });
 
-// 15. Manage Group Members & Badges (Add, Remove, Toggle Admin, Assign Badge)
+// 15. Manage Group Members, Badges, Restrictions & Announcement Mode
 app.post("/api/groups/members", (req: Request, res: Response) => {
-  const { groupId, requesterId, targetUserId, action, badgeName, badgeColor } = req.body;
+  const { groupId, requesterId, targetUserId, targetUserIds, action, badgeName, badgeColor } = req.body;
   const group = store.groups.find((g) => g.id === groupId);
   if (!group) return res.status(404).json({ error: "Group not found" });
 
+  const requester = store.users.find((u) => u.id === requesterId);
   const isCreator = group.creatorId === requesterId;
   const isAdmin = group.adminIds.includes(requesterId);
 
@@ -656,23 +703,106 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
     return res.status(403).json({ error: "Only admins or creator can manage group settings." });
   }
 
+  const conv = store.conversations.find((c) => c.groupId === group.id);
+  const requesterName = requester?.username || "Admin";
+
+  const addSystemMessage = (text: string) => {
+    if (!conv) return;
+    const sysMsg: Message = {
+      id: "msg_sys_" + Math.random().toString(36).substring(2, 10),
+      conversationId: conv.id,
+      senderId: "system",
+      senderName: "Wavegram System",
+      senderAvatar: "https://api.dicebear.com/7.x/identicon/svg?seed=wavegram_sys",
+      text,
+      type: "text",
+      reactions: {},
+      likes: [],
+      isSystem: true,
+      createdAt: new Date().toISOString()
+    };
+    store.messages.push(sysMsg);
+    conv.lastMessage = {
+      text,
+      senderId: "system",
+      senderName: "System",
+      createdAt: sysMsg.createdAt
+    };
+    conv.updatedAt = sysMsg.createdAt;
+    broadcastEvent("new_message", sysMsg);
+  };
+
   if (action === "add") {
     if (!group.memberIds.includes(targetUserId)) {
       group.memberIds.push(targetUserId);
-      const conv = store.conversations.find((c) => c.groupId === group.id);
       if (conv && !conv.participants.includes(targetUserId)) {
         conv.participants.push(targetUserId);
       }
+      const targetUser = store.users.find((u) => u.id === targetUserId);
+      addSystemMessage(`${targetUser?.username || "New member"} was added to the group by ${requesterName}.`);
     }
   } else if (action === "remove") {
     if (targetUserId === group.creatorId) {
       return res.status(400).json({ error: "Cannot remove the group owner." });
     }
+    const targetUser = store.users.find((u) => u.id === targetUserId);
+    const targetName = targetUser?.username || "Member";
+
     group.memberIds = group.memberIds.filter((id) => id !== targetUserId);
     group.adminIds = group.adminIds.filter((id) => id !== targetUserId);
-    const conv = store.conversations.find((c) => c.groupId === group.id);
+    if (group.restrictedMemberIds) {
+      group.restrictedMemberIds = group.restrictedMemberIds.filter((id) => id !== targetUserId);
+    }
     if (conv) {
       conv.participants = conv.participants.filter((id) => id !== targetUserId);
+    }
+
+    addSystemMessage(`Admin ${requesterName} removed ${targetName} from the group.`);
+  } else if (action === "remove_bulk" && Array.isArray(targetUserIds)) {
+    const validTargets = targetUserIds.filter((id) => id !== group.creatorId);
+    const targetNames: string[] = [];
+
+    validTargets.forEach((id) => {
+      const u = store.users.find((user) => user.id === id);
+      if (u) targetNames.push(u.username);
+      group.memberIds = group.memberIds.filter((mId) => mId !== id);
+      group.adminIds = group.adminIds.filter((aId) => aId !== id);
+      if (group.restrictedMemberIds) {
+        group.restrictedMemberIds = group.restrictedMemberIds.filter((rId) => rId !== id);
+      }
+      if (conv) {
+        conv.participants = conv.participants.filter((pId) => pId !== id);
+      }
+    });
+
+    if (targetNames.length > 0) {
+      addSystemMessage(`Admin ${requesterName} removed ${targetNames.join(", ")} from the group.`);
+    }
+  } else if (action === "restrict_member") {
+    if (targetUserId === group.creatorId) {
+      return res.status(400).json({ error: "Cannot restrict the group owner." });
+    }
+    if (!group.restrictedMemberIds) group.restrictedMemberIds = [];
+
+    const isCurrentlyRestricted = group.restrictedMemberIds.includes(targetUserId);
+    const targetUser = store.users.find((u) => u.id === targetUserId);
+    const targetName = targetUser?.username || "Member";
+
+    if (isCurrentlyRestricted) {
+      group.restrictedMemberIds = group.restrictedMemberIds.filter((id) => id !== targetUserId);
+      addSystemMessage(`Admin ${requesterName} removed read-only restriction for ${targetName}.`);
+    } else {
+      group.restrictedMemberIds.push(targetUserId);
+      addSystemMessage(`Admin ${requesterName} restricted ${targetName} to read-only mode.`);
+    }
+  } else if (action === "toggle_announcement_mode") {
+    group.announcementMode = !group.announcementMode;
+    group.onlyAdminMessagesVisible = group.announcementMode;
+
+    if (group.announcementMode) {
+      addSystemMessage(`📢 Admin ${requesterName} enabled Announcement Mode (Only admins can send messages).`);
+    } else {
+      addSystemMessage(`📢 Admin ${requesterName} disabled Announcement Mode (All members can now send messages).`);
     }
   } else if (action === "toggle_admin") {
     if (group.adminIds.includes(targetUserId)) {
@@ -732,6 +862,13 @@ app.post("/api/calls/signal", (req: Request, res: Response) => {
   if (action === "start") {
     const caller = store.users.find((u) => u.id === callerId);
     const target = store.users.find((u) => u.id === targetId);
+
+    if (target?.blockedUserIds?.includes(callerId)) {
+      return res.status(403).json({ error: "Cannot start call: You are blocked by this user." });
+    }
+    if (caller?.blockedUserIds?.includes(targetId)) {
+      return res.status(400).json({ error: "Cannot start call: You have blocked this user. Unblock them first." });
+    }
 
     const call: ActiveCall = {
       id: callId || "call_" + Math.random().toString(36).substring(2, 10),

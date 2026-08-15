@@ -490,10 +490,18 @@ export default function App() {
 
   // Manage Group Members
   const handleManageMembers = async (
-    action: "add" | "remove" | "toggle_admin" | "add_badge",
+    action:
+      | "add"
+      | "remove"
+      | "toggle_admin"
+      | "add_badge"
+      | "restrict_member"
+      | "toggle_announcement_mode"
+      | "remove_bulk",
     targetUserId: string,
     badgeName?: string,
-    badgeColor?: string
+    badgeColor?: string,
+    targetUserIds?: string[]
   ) => {
     const activeConv = conversations.find((c) => c.id === activeConversationId);
     if (!activeConv || !activeConv.groupId || !currentUser) return;
@@ -506,6 +514,7 @@ export default function App() {
           groupId: activeConv.groupId,
           requesterId: currentUser.id,
           targetUserId,
+          targetUserIds,
           action,
           badgeName,
           badgeColor
@@ -708,6 +717,7 @@ export default function App() {
           onCreateGroup={handleCreateGroup}
           onJoinGroup={handleJoinGroup}
           onManageMembers={handleManageMembers}
+          onBlockUser={handleBlockUser}
         />
       )}
 

@@ -12,7 +12,15 @@ import {
   Shield,
   Trash2,
   Award,
-  KeyRound
+  KeyRound,
+  Megaphone,
+  VolumeX,
+  Volume2,
+  UserX,
+  UserCheck,
+  CheckSquare,
+  Square,
+  AlertCircle
 } from "lucide-react";
 
 interface GroupModalProps {
@@ -31,11 +39,20 @@ interface GroupModalProps {
   }) => void;
   onJoinGroup: (inviteCode: string, password?: string) => void;
   onManageMembers: (
-    action: "add" | "remove" | "toggle_admin" | "add_badge",
+    action:
+      | "add"
+      | "remove"
+      | "toggle_admin"
+      | "add_badge"
+      | "restrict_member"
+      | "toggle_announcement_mode"
+      | "remove_bulk",
     targetUserId: string,
     badgeName?: string,
-    badgeColor?: string
+    badgeColor?: string,
+    targetUserIds?: string[]
   ) => void;
+  onBlockUser?: (targetUserId: string) => void;
 }
 
 const THEME_COLORS = ["#ec4899", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
@@ -55,7 +72,8 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   onClose,
   onCreateGroup,
   onJoinGroup,
-  onManageMembers
+  onManageMembers,
+  onBlockUser
 }) => {
   // Create mode state
   const [name, setName] = useState("");
@@ -73,6 +91,9 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [badgeTargetId, setBadgeTargetId] = useState<string | null>(null);
   const [customBadgeName, setCustomBadgeName] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
 
   const isCreator = group?.creatorId === currentUser.id;
   const isAdmin = group?.adminIds.includes(currentUser.id);
@@ -84,13 +105,38 @@ export const GroupModal: React.FC<GroupModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleToggleSelectMember = (memberId: string) => {
+    if (selectedMemberIds.includes(memberId)) {
+      setSelectedMemberIds(selectedMemberIds.filter((id) => id !== memberId));
+    } else {
+      setSelectedMemberIds([...selectedMemberIds, memberId]);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (!group) return;
+    const nonOwners = group.memberIds.filter((id) => id !== group.creatorId && id !== currentUser.id);
+    if (selectedMemberIds.length === nonOwners.length) {
+      setSelectedMemberIds([]);
+    } else {
+      setSelectedMemberIds(nonOwners);
+    }
+  };
+
+  const handleConfirmBulkRemove = () => {
+    if (selectedMemberIds.length === 0) return;
+    onManageMembers("remove_bulk", "", undefined, undefined, selectedMemberIds);
+    setSelectedMemberIds([]);
+    setShowBulkRemoveConfirm(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
       <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -259,8 +305,8 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
         {/* MANAGE GROUP MODE */}
         {mode === "manage" && group && (
-          <div>
-            <div className="flex items-center gap-3 mb-6">
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
               <img src={group.avatar} alt={group.name} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" />
               <div>
                 <h2 className="text-xl font-bold text-slate-100">{group.name}</h2>
@@ -269,62 +315,146 @@ export const GroupModal: React.FC<GroupModalProps> = ({
             </div>
 
             {/* Invite Code Bar */}
-            <div className="p-3 bg-slate-800/80 border border-slate-700 rounded-2xl mb-6 flex items-center justify-between">
+            <div className="p-3 bg-slate-800/80 border border-slate-700 rounded-2xl flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Group Invite Code</span>
                 <span className="font-mono text-sm font-bold text-pink-400">{group.inviteCode}</span>
               </div>
               <button
                 onClick={handleCopyInvite}
-                className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-xl text-xs font-semibold border border-pink-500/30 flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-xl text-xs font-semibold border border-pink-500/30 flex items-center gap-1.5 transition-colors"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "Copied!" : "Copy Code"}</span>
               </button>
             </div>
 
-            {/* Members List */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Group Members ({group.memberIds.length})
-              </h3>
+            {/* Admin Controls Panel */}
+            {isAdmin && (
+              <div className="p-4 bg-slate-800/60 border border-slate-700/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-400"}`}>
+                      <Megaphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">Announcement / Broadcast Mode</h4>
+                      <p className="text-[11px] text-slate-400">
+                        {group.announcementMode
+                          ? "Active: Only admins can send messages and regular members only see admin messages."
+                          : "Inactive: All group members can chat and send messages freely."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onManageMembers("toggle_announcement_mode", "")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      group.announcementMode
+                        ? "bg-amber-500 text-black hover:bg-amber-400 shadow-md shadow-amber-500/20"
+                        : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                    }`}
+                  >
+                    {group.announcementMode ? "Active (Broadcast)" : "Enable"}
+                  </button>
+                </div>
+              </div>
+            )}
 
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {/* Members List Header & Bulk Selection Bar */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Participants ({group.memberIds.length})
+                </h3>
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSelectAll}
+                      className="text-[11px] font-semibold text-slate-400 hover:text-pink-400 flex items-center gap-1 transition-colors"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5" />
+                      <span>{selectedMemberIds.length > 0 ? "Deselect All" : "Select All"}</span>
+                    </button>
+                    {selectedMemberIds.length > 0 && (
+                      <button
+                        onClick={() => setShowBulkRemoveConfirm(true)}
+                        className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-bold rounded-lg border border-red-500/30 flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove Selected ({selectedMemberIds.length})</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {group.memberIds.map((memberId) => {
                   const member = allUsers.find((u) => u.id === memberId);
                   const isMemberAdmin = group.adminIds.includes(memberId);
                   const isOwner = group.creatorId === memberId;
+                  const isRestricted = group.restrictedMemberIds?.includes(memberId);
+                  const isBlocked = currentUser.blockedUserIds?.includes(memberId);
                   const memberBadge = group.badges?.find((b) => b.userId === memberId);
+                  const isSelected = selectedMemberIds.includes(memberId);
 
                   return (
                     <div
                       key={memberId}
-                      className="p-2.5 rounded-2xl bg-slate-800/40 border border-slate-800 flex items-center justify-between gap-2"
+                      className={`p-2.5 rounded-2xl border transition-all ${
+                        isSelected
+                          ? "bg-red-950/30 border-red-500/40"
+                          : "bg-slate-800/40 border-slate-800 hover:border-slate-700"
+                      } flex items-center justify-between gap-2`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
+                        {isAdmin && !isOwner && memberId !== currentUser.id && (
+                          <button
+                            onClick={() => handleToggleSelectMember(memberId)}
+                            className="text-slate-400 hover:text-white shrink-0"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-red-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-500" />
+                            )}
+                          </button>
+                        )}
+
                         <img
-                          src={member?.avatar}
+                          src={member?.avatar || "https://api.dicebear.com/7.x/identicon/svg?seed=" + memberId}
                           alt={member?.username}
-                          className="w-9 h-9 rounded-xl object-cover bg-slate-700"
+                          className="w-9 h-9 rounded-xl object-cover bg-slate-700 shrink-0"
                         />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-xs text-slate-200 truncate">
                               {member?.username || "Member"}
                             </span>
                             {isOwner && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold">
                                 Owner
                               </span>
                             )}
                             {isMemberAdmin && !isOwner && (
-                              <span className="px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 text-[9px] font-bold">
+                              <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 text-[9px] font-bold">
                                 Admin
+                              </span>
+                            )}
+                            {isRestricted && (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[9px] font-bold flex items-center gap-0.5">
+                                <VolumeX className="w-2.5 h-2.5" />
+                                Restricted
+                              </span>
+                            )}
+                            {isBlocked && (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 text-[9px] font-bold">
+                                Blocked
                               </span>
                             )}
                             {memberBadge && (
                               <span
-                                className="px-1.5 py-0.2 rounded text-[9px] font-bold text-white"
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold text-white"
                                 style={{ backgroundColor: memberBadge.color }}
                               >
                                 {memberBadge.badgeName}
@@ -336,16 +466,17 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                       </div>
 
                       {/* Member Management Actions */}
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          {badgeTargetId === memberId ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Assign Badge */}
+                        {isAdmin && (
+                          badgeTargetId === memberId ? (
                             <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl">
                               <input
                                 type="text"
-                                placeholder="Badge name"
+                                placeholder="Badge"
                                 value={customBadgeName}
                                 onChange={(e) => setCustomBadgeName(e.target.value)}
-                                className="bg-slate-800 text-[10px] px-2 py-0.5 rounded text-white w-20 focus:outline-none"
+                                className="bg-slate-800 text-[10px] px-2 py-0.5 rounded text-white w-16 focus:outline-none"
                               />
                               <button
                                 onClick={() => {
@@ -364,37 +495,132 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                             <button
                               onClick={() => setBadgeTargetId(memberId)}
                               title="Assign Badge"
-                              className="p-1.5 text-slate-400 hover:text-pink-400 rounded-lg hover:bg-slate-700"
+                              className="p-1.5 text-slate-400 hover:text-pink-400 rounded-lg hover:bg-slate-700 transition-colors"
                             >
                               <Award className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                          )
+                        )}
 
-                          {!isOwner && (
-                            <>
-                              <button
-                                onClick={() => onManageMembers("toggle_admin", memberId)}
-                                title={isMemberAdmin ? "Demote from Admin" : "Promote to Admin"}
-                                className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-700"
-                              >
-                                <Shield className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => onManageMembers("remove", memberId)}
-                                title="Remove Member"
-                                className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                        {/* Restrict / Mute Member (Read-Only Mode) */}
+                        {isAdmin && !isOwner && memberId !== currentUser.id && (
+                          <button
+                            onClick={() => onManageMembers("restrict_member", memberId)}
+                            title={isRestricted ? "Remove Read-Only Restriction" : "Restrict Member to Read-Only"}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isRestricted
+                                ? "text-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
+                                : "text-slate-400 hover:text-amber-400 hover:bg-slate-700"
+                            }`}
+                          >
+                            {isRestricted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        {/* Promote / Demote Admin */}
+                        {isAdmin && !isOwner && memberId !== currentUser.id && (
+                          <button
+                            onClick={() => onManageMembers("toggle_admin", memberId)}
+                            title={isMemberAdmin ? "Demote from Admin" : "Promote to Admin"}
+                            className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-700 transition-colors"
+                          >
+                            <Shield className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {/* Block / Unblock User */}
+                        {onBlockUser && memberId !== currentUser.id && (
+                          <button
+                            onClick={() => onBlockUser(memberId)}
+                            title={isBlocked ? "Unblock User" : "Block User"}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              isBlocked
+                                ? "text-emerald-400 hover:bg-slate-700"
+                                : "text-slate-400 hover:text-amber-400 hover:bg-slate-700"
+                            }`}
+                          >
+                            {isBlocked ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+
+                        {/* Remove / Kick Member */}
+                        {isAdmin && !isOwner && memberId !== currentUser.id && (
+                          <button
+                            onClick={() =>
+                              setMemberToRemove({
+                                id: memberId,
+                                name: member?.username || "this member"
+                              })
+                            }
+                            title="Remove Member from Group"
+                            className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-950/40 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
+
+            {/* Remove Individual Member Confirmation Dialog */}
+            {memberToRemove && (
+              <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
+                <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Remove {memberToRemove.name} from group?</span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  This member will be removed from the group and an announcement will be posted in the chat.
+                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setMemberToRemove(null)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      onManageMembers("remove", memberToRemove.id);
+                      setMemberToRemove(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                  >
+                    Confirm Removal
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Remove Bulk Selected Confirmation Dialog */}
+            {showBulkRemoveConfirm && (
+              <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
+                <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Remove {selectedMemberIds.length} selected participant(s)?</span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  All selected members will be removed and an admin removal notice will be announced in the channel.
+                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setShowBulkRemoveConfirm(false)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmBulkRemove}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                  >
+                    Remove All Selected
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

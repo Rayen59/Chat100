@@ -22,6 +22,7 @@ import {
   Share2,
   Lock,
   Volume2,
+  VolumeX,
   Sparkles,
   X,
   Play,
@@ -35,7 +36,8 @@ import {
   Download,
   ShieldAlert,
   UserX,
-  UserCheck
+  UserCheck,
+  Megaphone
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
@@ -220,6 +222,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   // Other participant in DM
   const otherUserId = conversation.participants.find((id) => id !== currentUser.id);
   const otherUser = allUsers.find((u) => u.id === otherUserId);
+
+  const isGroupAdmin = conversation.type === "group" && group ? (group.adminIds.includes(currentUser.id) || group.creatorId === currentUser.id) : false;
+  const isRestrictedInGroup = conversation.type === "group" && group ? (group.restrictedMemberIds || []).includes(currentUser.id) : false;
+  const isAnnouncementOnly = conversation.type === "group" && group ? (!!group.announcementMode && !isGroupAdmin) : false;
+  const isOtherUserBlocked = conversation.type === "dm" && otherUserId ? (currentUser.blockedUserIds || []).includes(otherUserId) : false;
+  const isMeBlockedByOther = conversation.type === "dm" && otherUser ? (otherUser.blockedUserIds || []).includes(currentUser.id) : false;
 
   const title = conversation.type === "group" ? group?.name || "Group Chat" : otherUser?.username || "Chat";
   const avatar = conversation.type === "group" ? group?.avatar : otherUser?.avatar;
@@ -466,10 +474,16 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     style={{ backgroundColor: group.themeColor }}
                   />
                 )}
+                {group?.announcementMode && (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold flex items-center gap-1 border border-amber-500/30">
+                    <Megaphone className="w-2.5 h-2.5" />
+                    Broadcast
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-400">
                 {conversation.type === "group"
-                  ? `${group?.memberIds.length || 1} members • Tap for info`
+                  ? `${group?.memberIds.length || 1} members ${group?.announcementMode ? "• Announcement Channel" : "• Tap for info"}`
                   : isOnline
                   ? "Online • Tap to view profile"
                   : "Offline • Tap to view profile"}
@@ -567,6 +581,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           </div>
         ) : (
           messages.map((msg) => {
+            // Render System Announcements
+            if (msg.isSystem) {
+              return (
+                <div key={msg.id} className="flex justify-center my-2 select-none">
+                  <div className="px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-300 text-[11px] flex items-center gap-1.5 shadow-sm max-w-md text-center">
+                    <Sparkles className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                    <span>{msg.text}</span>
+                  </div>
+                </div>
+              );
+            }
+
             const isMe = msg.senderId === currentUser.id;
             const hasLiked = msg.likes?.includes(currentUser.id);
 
@@ -937,76 +963,108 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         </div>
       )}
 
-      {/* Input Bar */}
-      <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          title="Attach File or Media"
-          className="p-2.5 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
-        <button
-          onClick={() => setShowGifModal(true)}
-          title="Search GIFs"
-          className="p-2 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors font-bold text-xs border border-slate-700 px-2.5 shrink-0"
-        >
-          GIF
-        </button>
-
-        {isRecording ? (
-          <div className="flex-1 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 flex items-center justify-between text-rose-300 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-              <span>Recording Voice Note... 0:0{recordingSeconds}s</span>
-            </div>
+      {/* Input Bar or Restricted/Blocked Notice */}
+      {isRestrictedInGroup ? (
+        <div className="p-3.5 bg-rose-950/30 border-t border-rose-800/30 flex items-center justify-center gap-2 text-rose-300 text-xs font-semibold">
+          <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>You have been restricted to read-only mode by group administrators.</span>
+        </div>
+      ) : isAnnouncementOnly ? (
+        <div className="p-3.5 bg-amber-950/30 border-t border-amber-800/30 flex items-center justify-center gap-2 text-amber-300 text-xs font-semibold">
+          <Megaphone className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>Broadcast Channel: Only group admins can send messages.</span>
+        </div>
+      ) : isOtherUserBlocked ? (
+        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4 text-xs text-slate-300">
+          <div className="flex items-center gap-2">
+            <UserX className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>You have blocked this contact.</span>
+          </div>
+          {onBlockUser && otherUserId && (
             <button
-              onClick={stopRecording}
-              className="px-3 py-1 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-500"
+              onClick={() => onBlockUser(otherUserId)}
+              className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-xl text-xs font-bold border border-pink-500/30 transition-colors"
             >
-              Send Voice
+              Unblock User
             </button>
-          </div>
-        ) : (
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder="Type a message or paste GIF/Image from keyboard..."
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
-            />
-          </div>
-        )}
+          )}
+        </div>
+      ) : isMeBlockedByOther ? (
+        <div className="p-3.5 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-2 text-slate-400 text-xs font-medium">
+          <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+          <span>You cannot send messages to this contact.</span>
+        </div>
+      ) : (
+        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
 
-        {!isRecording && (
           <button
-            onClick={startRecording}
-            title="Hold to Record Voice Note"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach File or Media"
             className="p-2.5 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
           >
-            <Mic className="w-5 h-5" />
+            <Paperclip className="w-5 h-5" />
           </button>
-        )}
 
-        <button
-          onClick={handleSend}
-          disabled={!inputText.trim()}
-          className="p-2.5 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-pink-500/20 disabled:opacity-40 transition-all shrink-0 active:scale-95"
-        >
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
+          <button
+            onClick={() => setShowGifModal(true)}
+            title="Search GIFs"
+            className="p-2 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors font-bold text-xs border border-slate-700 px-2.5 shrink-0"
+          >
+            GIF
+          </button>
+
+          {isRecording ? (
+            <div className="flex-1 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 flex items-center justify-between text-rose-300 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span>Recording Voice Note... 0:0{recordingSeconds}s</span>
+              </div>
+              <button
+                onClick={stopRecording}
+                className="px-3 py-1 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-500"
+              >
+                Send Voice
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                placeholder="Type a message or paste GIF/Image from keyboard..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+              />
+            </div>
+          )}
+
+          {!isRecording && (
+            <button
+              onClick={startRecording}
+              title="Hold to Record Voice Note"
+              className="p-2.5 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
+          )}
+
+          <button
+            onClick={handleSend}
+            disabled={!inputText.trim()}
+            className="p-2.5 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-pink-500/20 disabled:opacity-40 transition-all shrink-0 active:scale-95"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* GIF Picker Modal */}
       {showGifModal && (

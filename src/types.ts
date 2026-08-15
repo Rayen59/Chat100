@@ -41,6 +41,7 @@ export interface Message {
   editedAt?: string;
   isDeletedForAll?: boolean;
   deletedForUsers?: string[]; // array of userIds who deleted for themselves
+  isSystem?: boolean;
   createdAt: string;
 }
 
@@ -58,6 +59,9 @@ export interface Group {
   creatorId: string;
   adminIds: string[];
   memberIds: string[];
+  restrictedMemberIds?: string[]; // Members restricted to read-only mode
+  announcementMode?: boolean; // When true, only admins can post
+  onlyAdminMessagesVisible?: boolean; // When true, members only see admin & system messages
   isPrivate: boolean;
   password?: string;
   inviteCode: string;
