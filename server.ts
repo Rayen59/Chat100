@@ -785,6 +785,11 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
     }
 
     addSystemMessage(`Admin ${requesterName} removed ${targetName} from the group.`);
+    broadcastEvent("member_removed", {
+      groupId: group.id,
+      conversationId: conv?.id,
+      removedUserIds: [targetUserId]
+    });
   } else if (action === "remove_bulk" && Array.isArray(targetUserIds)) {
     const validTargets = targetUserIds.filter((id) => id !== group.creatorId);
     const targetNames: string[] = [];
@@ -804,6 +809,16 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
 
     if (targetNames.length > 0) {
       addSystemMessage(`Admin ${requesterName} removed ${targetNames.join(", ")} from the group.`);
+    }
+    broadcastEvent("member_removed", {
+      groupId: group.id,
+      conversationId: conv?.id,
+      removedUserIds: validTargets
+    });
+  } else if (action === "update_theme") {
+    if (badgeColor) {
+      group.themeColor = badgeColor;
+      addSystemMessage(`Admin ${requesterName} updated the group theme color.`);
     }
   } else if (action === "restrict_member") {
     if (targetUserId === group.creatorId) {

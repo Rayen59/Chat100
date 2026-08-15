@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
-import { MessageSquare, PhoneCall, X, Sparkles } from "lucide-react";
+import { MessageSquare, PhoneCall, X, Sparkles, ShieldAlert } from "lucide-react";
 
 export interface AppNotification {
   id: string;
-  type: "message" | "call";
+  type: "message" | "call" | "system";
   title: string;
   senderName: string;
   senderAvatar?: string;
@@ -53,9 +53,11 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
               alt={notif.senderName}
               className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/50 group-hover:scale-105 transition-transform"
             />
-            <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-blue-600 text-white">
+            <span className={`absolute -bottom-1 -right-1 p-0.5 rounded-full text-white ${notif.type === "system" ? "bg-rose-600" : "bg-blue-600"}`}>
               {notif.type === "call" ? (
                 <PhoneCall className="w-2.5 h-2.5" />
+              ) : notif.type === "system" ? (
+                <ShieldAlert className="w-2.5 h-2.5" />
               ) : (
                 <MessageSquare className="w-2.5 h-2.5" />
               )}

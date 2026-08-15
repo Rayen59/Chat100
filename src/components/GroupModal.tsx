@@ -55,7 +55,16 @@ interface GroupModalProps {
   onBlockUser?: (targetUserId: string) => void;
 }
 
-const THEME_COLORS = ["#ec4899", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
+const THEME_COLORS = [
+  { name: "Sapphire Blue", hex: "#3b82f6" },
+  { name: "Cyan Teal", hex: "#06b6d4" },
+  { name: "Emerald Green", hex: "#10b981" },
+  { name: "Purple Dream", hex: "#8b5cf6" },
+  { name: "Hot Pink", hex: "#ec4899" },
+  { name: "Amber Gold", hex: "#f59e0b" },
+  { name: "Crimson Red", hex: "#ef4444" },
+  { name: "Indigo Wave", hex: "#6366f1" }
+];
 
 const PRESET_GROUP_AVATARS = [
   "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=80",
@@ -80,7 +89,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState("");
-  const [themeColor, setThemeColor] = useState(THEME_COLORS[0]);
+  const [themeColor, setThemeColor] = useState(THEME_COLORS[0].hex);
   const [avatar, setAvatar] = useState(PRESET_GROUP_AVATARS[0]);
 
   // Join mode state
@@ -193,18 +202,28 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
               {/* Theme Color Selector */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-2">Group Theme Accent</label>
-                <div className="flex gap-2">
-                  {THEME_COLORS.map((color) => (
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-300">Group Theme Accent</label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {THEME_COLORS.find((c) => c.hex === themeColor)?.name || "Custom"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {THEME_COLORS.map((c) => (
                     <button
-                      key={color}
+                      key={c.hex}
                       type="button"
-                      onClick={() => setThemeColor(color)}
-                      className={`w-8 h-8 rounded-full transition-transform ${
-                        themeColor === color ? "scale-125 ring-2 ring-white" : "opacity-80 hover:opacity-100"
+                      onClick={() => setThemeColor(c.hex)}
+                      title={c.name}
+                      className={`h-9 rounded-xl transition-all flex items-center justify-center relative shadow-md ${
+                        themeColor === c.hex
+                          ? "scale-110 ring-2 ring-white shadow-lg"
+                          : "opacity-75 hover:opacity-100 hover:scale-105"
                       }`}
-                      style={{ backgroundColor: color }}
-                    />
+                      style={{ backgroundColor: c.hex }}
+                    >
+                      {themeColor === c.hex && <Check className="w-4 h-4 text-white drop-shadow" />}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -331,8 +350,42 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
             {/* Admin Controls Panel */}
             {isAdmin && (
-              <div className="p-4 bg-[#0c1636] border border-blue-900/50 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="p-4 bg-[#0c1636] border border-blue-900/50 rounded-2xl space-y-4">
+                {/* Theme Color Live Switcher */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold text-slate-200">Group Theme Color</span>
+                    </div>
+                    <span
+                      className="w-3.5 h-3.5 rounded-full ring-2 ring-white/60 shadow"
+                      style={{ backgroundColor: group.themeColor || "#3b82f6" }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                    {THEME_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => onManageMembers("update_theme", "", undefined, c.hex)}
+                        title={`Apply ${c.name}`}
+                        className={`h-8 rounded-xl transition-all flex items-center justify-center relative ${
+                          (group.themeColor || "#3b82f6") === c.hex
+                            ? "scale-110 ring-2 ring-white shadow-lg"
+                            : "opacity-70 hover:opacity-100 hover:scale-105"
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      >
+                        {(group.themeColor || "#3b82f6") === c.hex && (
+                          <Check className="w-3.5 h-3.5 text-white drop-shadow" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-blue-950">
                   <div className="flex items-center gap-2.5">
                     <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40" : "bg-blue-950 text-slate-400"}`}>
                       <Megaphone className="w-4 h-4" />

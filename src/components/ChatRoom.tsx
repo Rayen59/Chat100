@@ -117,6 +117,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [heartParticles, setHeartParticles] = useState<{ id: string; msgId: string; emoji: string; x: number; y: number }[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -257,16 +258,19 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     });
     setInputText("");
     setReplyTo(null);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "42px";
+    }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData?.items;
     if (items) {
       for (let i = 0; i < items.length; i++) {
@@ -431,6 +435,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#030612] relative overflow-hidden select-none">
+      {/* Dynamic Ambient Theme Mesh Glow */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-all duration-700 opacity-60"
+        style={{
+          background: group?.themeColor
+            ? `radial-gradient(ellipse at 50% 0%, ${group.themeColor}22 0%, transparent 65%)`
+            : "radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.12) 0%, transparent 65%)"
+        }}
+      />
       
       {/* Header */}
       <div className="p-3 px-4 border-b border-blue-950/70 bg-[#09112a]/90 backdrop-blur-xl flex items-center justify-between z-10 shadow-md">
@@ -459,7 +472,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               <img
                 src={avatar}
                 alt={title}
-                className="w-11 h-11 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/40 group-hover:scale-105 transition-transform shadow-md shadow-blue-500/20"
+                className="w-11 h-11 rounded-2xl object-cover bg-slate-800 ring-2 group-hover:scale-105 transition-transform shadow-md"
+                style={{
+                  borderColor: group?.themeColor ? `${group.themeColor}88` : undefined,
+                  boxShadow: group?.themeColor ? `0 0 15px ${group.themeColor}40` : undefined
+                }}
               />
               {isOnline && (
                 <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#09112a] shadow-[0_0_6px_#34d399]" />
@@ -470,8 +487,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 <h2 className="font-bold text-slate-100 text-sm group-hover:text-blue-400 transition-colors">{title}</h2>
                 {group?.themeColor && (
                   <span
-                    className="w-2.5 h-2.5 rounded-full ring-1 ring-white/40"
+                    className="w-3 h-3 rounded-full ring-2 ring-white/60 shadow-sm"
                     style={{ backgroundColor: group.themeColor }}
+                    title="Group Theme Accent"
                   />
                 )}
                 {group?.announcementMode && (
@@ -483,7 +501,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </div>
               <p className="text-[11px] text-slate-400">
                 {conversation.type === "group"
-                  ? `${group?.memberIds.length || 1} members ${group?.announcementMode ? "• Announcement Channel" : "• Tap for info"}`
+                  ? `${group?.memberIds.length || 1} members ${group?.announcementMode ? "• Announcement Channel" : "• Tap for info & theme"}`
                   : isOnline
                   ? "Online • Tap to view profile"
                   : "Offline • Tap to view profile"}
@@ -652,6 +670,14 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   }}
                   onTouchStart={() => handleTouchStart(msg)}
                   onTouchEnd={handleTouchEnd}
+                  style={
+                    isMe && group?.themeColor
+                      ? {
+                          background: `linear-gradient(135deg, ${group.themeColor}, #1e1b4b)`,
+                          boxShadow: `0 4px 20px ${group.themeColor}33`
+                        }
+                      : undefined
+                  }
                   className={`relative max-w-[82%] sm:max-w-[70%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
                     isMe
                       ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-br-none shadow-blue-600/20"
@@ -1033,15 +1059,21 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex-1 relative">
-              <input
-                type="text"
+            <div className="flex-1 relative flex items-center">
+              <textarea
+                ref={textareaRef}
+                rows={1}
                 placeholder="Type a message or paste GIF/Image from keyboard..."
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                }}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
+                style={{ minHeight: "42px", maxHeight: "120px" }}
+                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all resize-none overflow-y-auto leading-relaxed scrollbar-thin scrollbar-thumb-blue-900/40"
               />
             </div>
           )}
@@ -1050,7 +1082,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             <button
               onClick={startRecording}
               title="Hold to Record Voice Note"
-              className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0"
+              className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0 self-end mb-0.5"
             >
               <Mic className="w-5 h-5" />
             </button>
@@ -1059,7 +1091,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <button
             onClick={handleSend}
             disabled={!inputText.trim()}
-            className="p-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-xl shadow-lg shadow-blue-600/25 disabled:opacity-40 transition-all shrink-0 active:scale-95"
+            style={
+              group?.themeColor && inputText.trim()
+                ? {
+                    background: `linear-gradient(135deg, ${group.themeColor}, #3b82f6)`,
+                    boxShadow: `0 4px 15px ${group.themeColor}50`
+                  }
+                : undefined
+            }
+            className="p-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-xl shadow-lg shadow-blue-600/25 disabled:opacity-40 transition-all shrink-0 active:scale-95 self-end mb-0.5"
           >
             <Send className="w-4 h-4" />
           </button>

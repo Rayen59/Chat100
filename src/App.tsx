@@ -208,6 +208,50 @@ export default function App() {
       });
     });
 
+    // Instant update when a group is updated
+    eventSource.addEventListener("group_updated", (e: any) => {
+      const updatedGroup: Group = JSON.parse(e.data);
+      setGroups((prev) => prev.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)));
+    });
+
+    // Instant update when a member or group of members is removed
+    eventSource.addEventListener("member_removed", (e: any) => {
+      const data: { groupId: string; conversationId?: string; removedUserIds: string[] } = JSON.parse(e.data);
+      if (data.removedUserIds.includes(currentUser.id)) {
+        // Current user was removed from the group!
+        setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
+        if (data.conversationId) {
+          setConversations((prev) => prev.filter((c) => c.id !== data.conversationId));
+          if (activeConversationId === data.conversationId) {
+            setActiveConversationId(null);
+            setMessages([]);
+          }
+        }
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "system",
+          title: "Group Access Revoked",
+          senderName: "Wavegram Security",
+          text: "You were removed from this group by an admin and cannot view or send any messages.",
+          createdAt: new Date().toISOString()
+        };
+        setNotifications((prev) => [...prev, notif]);
+      } else {
+        setGroups((prev) =>
+          prev.map((g) => {
+            if (g.id === data.groupId) {
+              return {
+                ...g,
+                memberIds: g.memberIds.filter((id) => !data.removedUserIds.includes(id)),
+                adminIds: g.adminIds.filter((id) => !data.removedUserIds.includes(id))
+              };
+            }
+            return g;
+          })
+        );
+      }
+    });
+
     // Instant update when an account is deleted!
     eventSource.addEventListener("user_deleted", (e: any) => {
       const { userId } = JSON.parse(e.data);
