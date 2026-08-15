@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { User } from "../types";
-import { Sparkles, User as UserIcon, Mail, Lock, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Sparkles, User as UserIcon, Mail, Lock, Image as ImageIcon, AlertCircle, Upload, Check } from "lucide-react";
 
 interface AuthModalProps {
   onLoginSuccess: (user: User) => void;
@@ -27,6 +27,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   const [customAvatar, setCustomAvatar] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        setAvatar(base64Url);
+        setCustomAvatar(base64Url);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,25 +76,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 text-slate-100 animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 overflow-y-auto">
+      <div className="w-full max-w-md bg-[#09112a] border border-blue-500/20 rounded-3xl shadow-[0_0_50px_rgba(37,99,235,0.18)] p-6 text-slate-100 animate-in fade-in zoom-in-95 duration-200 my-auto max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-900/50">
         
-        {/* Header Logo */}
+        {/* Header Logo & Active Avatar Preview */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-pink-500/20 mb-3">
-            <span className="text-2xl font-black text-white tracking-wider">WG</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-pink-400 via-purple-300 to-indigo-400 bg-clip-text text-transparent">
-            Welcome to Wavegram
+          {isSignUp ? (
+            <div className="relative mb-3">
+              <div className="w-20 h-20 rounded-3xl overflow-hidden ring-4 ring-blue-500/50 shadow-xl shadow-blue-500/25 bg-[#0e1b3d]">
+                <img
+                  src={customAvatar || avatar}
+                  alt="Avatar Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg border-2 border-[#09112a] transition-transform active:scale-90"
+                title="Upload Photo from Gallery"
+              >
+                <Upload className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/30 mb-3 ring-2 ring-blue-400/30">
+              <span className="text-2xl font-black text-white tracking-wider">WG</span>
+            </div>
+          )}
+
+          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-blue-400 via-indigo-300 to-cyan-300 bg-clip-text text-transparent">
+            {isSignUp ? "Join Wavegram" : "Welcome to Wavegram"}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            {isSignUp ? "Create a new account to get started" : "Sign in to continue to Wavegram"}
+            {isSignUp ? "Create your account and start connecting" : "Sign in to access your chats and channels"}
           </p>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>{error}</span>
           </div>
@@ -98,7 +133,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                   placeholder="e.g. Alex Morgan"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
                 />
               </div>
             </div>
@@ -114,7 +149,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                 placeholder="you@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
               />
             </div>
           </div>
@@ -129,7 +164,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
               />
             </div>
           </div>
@@ -143,12 +178,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                   placeholder="e.g. Living in the moment ✨"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-2">Choose Profile Picture</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-medium text-slate-300">Profile Picture</label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Upload from Gallery</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-4 gap-2 mb-2">
                   {PRESET_AVATARS.map((url, idx) => (
                     <button
@@ -158,24 +204,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
                         setAvatar(url);
                         setCustomAvatar("");
                       }}
-                      className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${
+                      className={`relative rounded-2xl overflow-hidden aspect-square border-2 transition-all ${
                         avatar === url && !customAvatar
-                          ? "border-pink-500 scale-105 shadow-md shadow-pink-500/30"
-                          : "border-transparent opacity-70 hover:opacity-100"
+                          ? "border-blue-500 scale-105 shadow-md shadow-blue-500/40 ring-2 ring-blue-400/40"
+                          : "border-transparent opacity-60 hover:opacity-100"
                       }`}
                     >
                       <img src={url} alt="Avatar" className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
-                <div className="relative mt-2">
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleGalleryUpload}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-2.5 px-3 bg-[#0d1b3d] hover:bg-[#132757] text-blue-300 hover:text-white border border-blue-500/30 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] mb-2"
+                >
+                  <Upload className="w-4 h-4 text-cyan-400" />
+                  <span>Choose Photo from Gallery / Device</span>
+                </button>
+
+                <div className="relative">
                   <ImageIcon className="w-4 h-4 absolute left-3 top-2.5 text-slate-500" />
                   <input
                     type="url"
                     placeholder="Or paste custom image URL"
                     value={customAvatar}
                     onChange={(e) => setCustomAvatar(e.target.value)}
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                    className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
                   />
                 </div>
               </div>
@@ -185,7 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-pink-500/25 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 mt-4 flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 mt-4 flex items-center justify-center gap-2"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -206,7 +270,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
               setIsSignUp(!isSignUp);
               setError(null);
             }}
-            className="text-pink-400 font-semibold hover:underline ml-1"
+            className="text-blue-400 font-semibold hover:underline ml-1"
           >
             {isSignUp ? "Log in" : "Sign up"}
           </button>

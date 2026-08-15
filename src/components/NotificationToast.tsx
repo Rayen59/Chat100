@@ -42,7 +42,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
         <div
           key={notif.id}
           onClick={() => onSelectNotification(notif)}
-          className="pointer-events-auto bg-[#0d122b]/95 backdrop-blur-md border border-red-500/40 rounded-2xl p-3.5 shadow-[0_10px_30px_rgba(239,68,68,0.25)] text-slate-100 flex items-start gap-3 transition-all animate-in slide-in-from-top-3 duration-300 cursor-pointer hover:border-red-400 group"
+          className="pointer-events-auto bg-[#09112a]/95 backdrop-blur-xl border border-blue-500/40 rounded-2xl p-3.5 shadow-[0_10px_30px_rgba(37,99,235,0.25)] text-slate-100 flex items-start gap-3 transition-all animate-in slide-in-from-top-3 duration-300 cursor-pointer hover:border-blue-400 group"
         >
           <div className="relative shrink-0">
             <img
@@ -51,9 +51,9 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
                 "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
               }
               alt={notif.senderName}
-              className="w-10 h-10 rounded-full object-cover ring-2 ring-red-500/50 group-hover:scale-105 transition-transform"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/50 group-hover:scale-105 transition-transform"
             />
-            <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-red-600 text-white">
+            <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-blue-600 text-white">
               {notif.type === "call" ? (
                 <PhoneCall className="w-2.5 h-2.5" />
               ) : (
@@ -64,18 +64,18 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white group-hover:text-red-400 transition-colors truncate">
+              <span className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors truncate">
                 {notif.senderName}
               </span>
               <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
-                <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
                 Now
               </span>
             </div>
             <p className="text-xs text-slate-300 font-medium truncate mt-0.5">
               {notif.text}
             </p>
-            <p className="text-[10px] text-red-400 font-semibold mt-1 flex items-center gap-1">
+            <p className="text-[10px] text-blue-400 font-semibold mt-1 flex items-center gap-1">
               Click to view message →
             </p>
           </div>
@@ -85,7 +85,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
               e.stopPropagation();
               onDismiss(notif.id);
             }}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

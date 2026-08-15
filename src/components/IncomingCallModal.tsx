@@ -14,18 +14,18 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   onDecline
 }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none animate-fadeIn">
-      <div className="w-full max-w-sm bg-[#0b0f24] border border-red-500/40 rounded-3xl p-6 text-slate-100 shadow-[0_0_60px_rgba(239,68,68,0.3)] relative flex flex-col items-center text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4 select-none animate-fadeIn">
+      <div className="w-full max-w-sm bg-[#09112a] border border-blue-500/40 rounded-3xl p-6 text-slate-100 shadow-[0_0_60px_rgba(37,99,235,0.3)] relative flex flex-col items-center text-center">
         
         {/* Call Type Indicator */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold mb-4 animate-bounce">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold mb-4 animate-bounce">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Incoming Wavegram {call.type === "video" ? "HD Video" : "Voice"} Call</span>
         </div>
 
         {/* Pulsing Avatar */}
         <div className="relative w-28 h-28 mb-4">
-          <div className="absolute inset-0 rounded-full bg-red-500/30 animate-ping" />
+          <div className="absolute inset-0 rounded-full bg-blue-500/30 animate-ping" />
           <img
             src={
               call.callerAvatar ||
@@ -34,7 +34,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
               )}`
             }
             alt={call.callerName}
-            className="w-full h-full rounded-full object-cover bg-slate-800 ring-4 ring-red-500/50 shadow-2xl relative z-10"
+            className="w-full h-full rounded-full object-cover bg-slate-800 ring-4 ring-blue-500/50 shadow-2xl relative z-10"
           />
         </div>
 

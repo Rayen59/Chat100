@@ -46,26 +46,26 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none animate-fadeIn">
-      <div className="w-full max-w-md bg-[#0b0f24] border border-red-500/30 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(239,68,68,0.2)] relative flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4 select-none animate-fadeIn">
+      <div className="w-full max-w-md bg-[#09112a] border border-blue-500/30 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="flex items-center justify-between pb-4 border-b border-blue-950">
           <div className="flex items-center gap-2">
-            <Share2 className="w-5 h-5 text-red-500 animate-pulse" />
+            <Share2 className="w-5 h-5 text-blue-400 animate-pulse" />
             <h2 className="text-lg font-bold text-white">Forward Message</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Message Preview Box */}
-        <div className="my-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs text-slate-300">
-          <p className="font-bold text-red-400 mb-1">
+        <div className="my-3 p-3 bg-[#050a1b] rounded-2xl border border-blue-950 text-xs text-slate-300">
+          <p className="font-bold text-blue-400 mb-1">
             {message.senderName}:
           </p>
           <p className="truncate line-clamp-2">
@@ -81,12 +81,12 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search chat or group..."
-            className="w-full bg-[#050814] border border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50"
+            className="w-full bg-[#050a1b] border border-blue-950 rounded-2xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50"
           />
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1 scrollbar-thin scrollbar-thumb-slate-800">
+        <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1 scrollbar-thin scrollbar-thumb-blue-900/40">
           {filteredConversations.length === 0 ? (
             <p className="text-center text-xs text-slate-500 py-6">
               No chats found matching search
@@ -105,7 +105,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
               return (
                 <div
                   key={conv.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-[#080c1f] hover:bg-[#0e132e] border border-slate-800/80 transition-all"
+                  className="flex items-center justify-between p-3 rounded-2xl bg-[#050a1b] hover:bg-[#0c1538] border border-blue-950/80 transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <img
@@ -116,7 +116,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
                         )}`
                       }
                       alt={name}
-                      className="w-10 h-10 rounded-2xl object-cover bg-slate-800 shrink-0"
+                      className="w-10 h-10 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/30 shrink-0"
                     />
                     <div className="min-w-0">
                       <h4 className="font-bold text-xs text-white truncate flex items-center gap-1.5">
@@ -124,7 +124,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
                         {isGroup ? (
                           <Users className="w-3 h-3 text-indigo-400 shrink-0" />
                         ) : (
-                          <UserIcon className="w-3 h-3 text-red-400 shrink-0" />
+                          <UserIcon className="w-3 h-3 text-blue-400 shrink-0" />
                         )}
                       </h4>
                       <p className="text-[10px] text-slate-400 truncate">
@@ -139,7 +139,7 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shrink-0 ${
                       isSent
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : "bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/30"
+                        : "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30"
                     }`}
                   >
                     {isSent ? (
@@ -158,10 +158,10 @@ export const ForwardModal: React.FC<ForwardModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="pt-3 border-t border-slate-800 flex justify-end">
+        <div className="pt-3 border-t border-blue-950 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors"
+            className="px-5 py-2 rounded-xl bg-[#050a1b] hover:bg-[#0c1538] text-xs font-bold text-slate-300 border border-blue-950 transition-colors"
           >
             Done
           </button>

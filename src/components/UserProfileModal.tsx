@@ -21,11 +21,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const isBlocked = currentUser.blockedUserIds?.includes(user.id);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none animate-fadeIn">
-      <div className="w-full max-w-sm bg-[#0b0f24] border border-red-500/30 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(239,68,68,0.2)] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 select-none animate-fadeIn">
+      <div className="w-full max-w-sm bg-[#09112a] border border-blue-500/30 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.25)] relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -36,11 +36,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <img
               src={user.avatar}
               alt={user.username}
-              className="w-full h-full rounded-3xl object-cover bg-slate-800 ring-4 ring-red-500/40 shadow-xl"
+              className="w-full h-full rounded-3xl object-cover bg-slate-800 ring-4 ring-blue-500/50 shadow-2xl shadow-blue-500/30"
             />
             <span
-              className={`absolute bottom-0 right-0 w-5 h-5 rounded-full border-2 border-[#0b0f24] ${
-                user.status === "online" ? "bg-emerald-500 shadow-[0_0_10px_#10b981]" : "bg-slate-500"
+              className={`absolute bottom-0 right-0 w-5 h-5 rounded-full border-2 border-[#09112a] ${
+                user.status === "online" ? "bg-emerald-400 shadow-[0_0_12px_#34d399]" : "bg-slate-500"
               }`}
             />
           </div>
@@ -49,7 +49,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="flex items-center gap-2 justify-center mb-1">
             <h2 className="text-xl font-extrabold text-white">{user.username}</h2>
             {user.badges && user.badges.length > 0 && (
-              <span className="px-2 py-0.5 text-[10px] rounded-full bg-red-500/20 text-red-300 font-bold border border-red-500/30">
+              <span className="px-2.5 py-0.5 text-[10px] rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
                 {user.badges[0]}
               </span>
             )}
@@ -68,17 +68,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
 
           {/* Bio Box */}
-          <div className="w-full p-3 rounded-2xl bg-[#050814] border border-slate-800/80 mb-4 text-xs text-slate-300">
+          <div className="w-full p-3.5 rounded-2xl bg-[#050a1b] border border-blue-900/40 mb-4 text-xs text-slate-300">
             <p className="italic">{user.bio || "No bio provided yet."}</p>
           </div>
 
           {/* Details */}
           <div className="w-full space-y-2 mb-6 text-left">
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/50">
-              <Mail className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="flex items-center gap-2 text-xs text-slate-300 bg-[#0c1636] p-2.5 rounded-xl border border-blue-900/40">
+              <Mail className="w-4 h-4 text-blue-400 shrink-0" />
               <span className="truncate">{user.email}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/50">
+            <div className="flex items-center gap-2 text-xs text-slate-300 bg-[#0c1636] p-2.5 rounded-xl border border-blue-900/40">
               <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
               <span>Wavegram Verified Account</span>
             </div>
@@ -92,10 +92,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onClose();
                   onStartDM(user.id);
                 }}
-                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-indigo-700 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all active:scale-95"
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98]"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Send Message (Démarrer une discussion)</span>
+                <span>Send Message</span>
               </button>
 
               {onBlockUser && (
@@ -103,10 +103,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onClick={() => {
                     onBlockUser(user.id);
                   }}
-                  className={`w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all active:scale-95 ${
+                  className={`w-full py-2.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border transition-all active:scale-[0.98] ${
                     isBlocked
                       ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60"
-                      : "bg-red-950/40 border-red-800/40 text-red-400 hover:bg-red-900/60"
+                      : "bg-rose-950/40 border-rose-800/40 text-rose-400 hover:bg-rose-900/60"
                   }`}
                 >
                   {isBlocked ? (
@@ -117,7 +117,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   ) : (
                     <>
                       <UserX className="w-4 h-4" />
-                      <span>Block User (Bloquer)</span>
+                      <span>Block User</span>
                     </>
                   )}
                 </button>

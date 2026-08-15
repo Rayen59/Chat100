@@ -131,12 +131,12 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
-      <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 select-none">
+      <div className="w-full max-w-lg bg-[#09112a] border border-blue-500/25 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-900/50">
         
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -145,7 +145,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
         {mode === "create" && (
           <div>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-pink-500/20">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-blue-500/25 ring-2 ring-blue-400/30">
                 <Users className="w-6 h-6" />
               </div>
               <div>
@@ -177,7 +177,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   placeholder="e.g. Design Innovators"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
 
@@ -187,7 +187,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   placeholder="What is this group about?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500 h-20 resize-none"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none transition-all"
                 />
               </div>
 
@@ -210,7 +210,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
               </div>
 
               {/* Private Group Toggle & Password */}
-              <div className="p-3 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-3">
+              <div className="p-3 bg-[#0c1636] border border-blue-900/40 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="font-semibold text-xs text-slate-200">Password Protected</span>
@@ -220,7 +220,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                     type="checkbox"
                     checked={isPrivate}
                     onChange={(e) => setIsPrivate(e.target.checked)}
-                    className="w-4 h-4 accent-pink-500 rounded"
+                    className="w-4 h-4 accent-blue-500 rounded"
                   />
                 </div>
 
@@ -233,7 +233,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                       placeholder="Group entrance password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 )}
@@ -241,7 +241,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-pink-500/20 transition-all mt-4"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all mt-4 active:scale-[0.98]"
               >
                 Create Group
               </button>
@@ -253,7 +253,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
         {mode === "join" && (
           <div>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
                 <KeyRound className="w-6 h-6" />
               </div>
               <div>
@@ -278,7 +278,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   placeholder="e.g. WAVE-TECH-2026"
                   value={inviteCodeInput}
                   onChange={(e) => setInviteCodeInput(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500 uppercase font-mono tracking-wider"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase font-mono tracking-wider"
                 />
               </div>
 
@@ -289,13 +289,13 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   placeholder="Leave empty if public"
                   value={joinPasswordInput}
                   onChange={(e) => setJoinPasswordInput(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-3 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-pink-500/20 transition-all mt-4"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all mt-4 active:scale-[0.98]"
               >
                 Join Group
               </button>
@@ -307,7 +307,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
         {mode === "manage" && group && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <img src={group.avatar} alt={group.name} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" />
+              <img src={group.avatar} alt={group.name} className="w-14 h-14 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/30" />
               <div>
                 <h2 className="text-xl font-bold text-slate-100">{group.name}</h2>
                 <p className="text-xs text-slate-400">{group.description || "Wavegram Community Group"}</p>
@@ -315,14 +315,14 @@ export const GroupModal: React.FC<GroupModalProps> = ({
             </div>
 
             {/* Invite Code Bar */}
-            <div className="p-3 bg-slate-800/80 border border-slate-700 rounded-2xl flex items-center justify-between">
+            <div className="p-3 bg-[#0c1636] border border-blue-900/50 rounded-2xl flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Group Invite Code</span>
-                <span className="font-mono text-sm font-bold text-pink-400">{group.inviteCode}</span>
+                <span className="font-mono text-sm font-bold text-blue-400">{group.inviteCode}</span>
               </div>
               <button
                 onClick={handleCopyInvite}
-                className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-xl text-xs font-semibold border border-pink-500/30 flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl text-xs font-semibold border border-blue-500/30 flex items-center gap-1.5 transition-colors"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "Copied!" : "Copy Code"}</span>
@@ -331,18 +331,18 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
             {/* Admin Controls Panel */}
             {isAdmin && (
-              <div className="p-4 bg-slate-800/60 border border-slate-700/80 rounded-2xl space-y-3">
+              <div className="p-4 bg-[#0c1636] border border-blue-900/50 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400" : "bg-slate-700 text-slate-400"}`}>
+                    <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40" : "bg-blue-950 text-slate-400"}`}>
                       <Megaphone className="w-4 h-4" />
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-200">Announcement / Broadcast Mode</h4>
                       <p className="text-[11px] text-slate-400">
                         {group.announcementMode
-                          ? "Active: Only admins can send messages and regular members only see admin messages."
-                          : "Inactive: All group members can chat and send messages freely."}
+                          ? "Active: Only admins can send messages; regular members cannot broadcast."
+                          : "Inactive: All members can freely chat."}
                       </p>
                     </div>
                   </div>
@@ -351,10 +351,10 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       group.announcementMode
                         ? "bg-amber-500 text-black hover:bg-amber-400 shadow-md shadow-amber-500/20"
-                        : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                        : "bg-blue-900/60 text-slate-200 hover:bg-blue-900"
                     }`}
                   >
-                    {group.announcementMode ? "Active (Broadcast)" : "Enable"}
+                    {group.announcementMode ? "Active" : "Enable"}
                   </button>
                 </div>
               </div>
@@ -370,7 +370,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleSelectAll}
-                      className="text-[11px] font-semibold text-slate-400 hover:text-pink-400 flex items-center gap-1 transition-colors"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-blue-400 flex items-center gap-1 transition-colors"
                     >
                       <CheckSquare className="w-3.5 h-3.5" />
                       <span>{selectedMemberIds.length > 0 ? "Deselect All" : "Select All"}</span>
@@ -378,7 +378,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                     {selectedMemberIds.length > 0 && (
                       <button
                         onClick={() => setShowBulkRemoveConfirm(true)}
-                        className="px-2.5 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-bold rounded-lg border border-red-500/30 flex items-center gap-1 transition-colors"
+                        className="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 text-xs font-bold rounded-lg border border-rose-500/30 flex items-center gap-1 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Remove Selected ({selectedMemberIds.length})</span>
@@ -388,7 +388,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                 )}
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-blue-900/40">
                 {group.memberIds.map((memberId) => {
                   const member = allUsers.find((u) => u.id === memberId);
                   const isMemberAdmin = group.adminIds.includes(memberId);
@@ -403,8 +403,8 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                       key={memberId}
                       className={`p-2.5 rounded-2xl border transition-all ${
                         isSelected
-                          ? "bg-red-950/30 border-red-500/40"
-                          : "bg-slate-800/40 border-slate-800 hover:border-slate-700"
+                          ? "bg-rose-950/30 border-rose-500/40"
+                          : "bg-[#050a1b] border-blue-950 hover:border-blue-900/60"
                       } flex items-center justify-between gap-2`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -414,7 +414,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                             className="text-slate-400 hover:text-white shrink-0"
                           >
                             {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-red-400" />
+                              <CheckSquare className="w-4 h-4 text-rose-400" />
                             ) : (
                               <Square className="w-4 h-4 text-slate-500" />
                             )}
@@ -424,7 +424,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                         <img
                           src={member?.avatar || "https://api.dicebear.com/7.x/identicon/svg?seed=" + memberId}
                           alt={member?.username}
-                          className="w-9 h-9 rounded-xl object-cover bg-slate-700 shrink-0"
+                          className="w-9 h-9 rounded-xl object-cover bg-slate-700 shrink-0 ring-1 ring-blue-500/20"
                         />
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -437,7 +437,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                               </span>
                             )}
                             {isMemberAdmin && !isOwner && (
-                              <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 text-[9px] font-bold">
+                              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[9px] font-bold">
                                 Admin
                               </span>
                             )}
@@ -481,7 +481,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                               <button
                                 onClick={() => {
                                   if (customBadgeName.trim()) {
-                                    onManageMembers("add_badge", memberId, customBadgeName.trim(), "#ec4899");
+                                    onManageMembers("add_badge", memberId, customBadgeName.trim(), "#3b82f6");
                                     setBadgeTargetId(null);
                                     setCustomBadgeName("");
                                   }
@@ -495,7 +495,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                             <button
                               onClick={() => setBadgeTargetId(memberId)}
                               title="Assign Badge"
-                              className="p-1.5 text-slate-400 hover:text-pink-400 rounded-lg hover:bg-slate-700 transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-blue-400 rounded-lg hover:bg-blue-900/30 transition-colors"
                             >
                               <Award className="w-3.5 h-3.5" />
                             </button>
@@ -510,7 +510,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                             className={`p-1.5 rounded-lg transition-colors ${
                               isRestricted
                                 ? "text-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
-                                : "text-slate-400 hover:text-amber-400 hover:bg-slate-700"
+                                : "text-slate-400 hover:text-amber-400 hover:bg-blue-900/30"
                             }`}
                           >
                             {isRestricted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -522,7 +522,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                           <button
                             onClick={() => onManageMembers("toggle_admin", memberId)}
                             title={isMemberAdmin ? "Demote from Admin" : "Promote to Admin"}
-                            className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-slate-700 transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-blue-900/30 transition-colors"
                           >
                             <Shield className="w-3.5 h-3.5" />
                           </button>
@@ -567,13 +567,13 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
             {/* Remove Individual Member Confirmation Dialog */}
             {memberToRemove && (
-              <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
+              <div className="p-4 bg-rose-950/50 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
                 <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>Remove {memberToRemove.name} from group?</span>
                 </div>
                 <p className="text-[11px] text-slate-300">
-                  This member will be removed from the group and an announcement will be posted in the chat.
+                  This member will be removed from the group, lose access to messages, and an announcement will be posted in the chat.
                 </p>
                 <div className="flex items-center justify-end gap-2">
                   <button
@@ -587,7 +587,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                       onManageMembers("remove", memberToRemove.id);
                       setMemberToRemove(null);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md"
                   >
                     Confirm Removal
                   </button>
@@ -597,13 +597,13 @@ export const GroupModal: React.FC<GroupModalProps> = ({
 
             {/* Remove Bulk Selected Confirmation Dialog */}
             {showBulkRemoveConfirm && (
-              <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
+              <div className="p-4 bg-rose-950/50 border border-rose-500/40 rounded-2xl space-y-3 animate-fade-in">
                 <div className="flex items-center gap-2 text-rose-300 text-xs font-bold">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>Remove {selectedMemberIds.length} selected participant(s)?</span>
                 </div>
                 <p className="text-[11px] text-slate-300">
-                  All selected members will be removed and an admin removal notice will be announced in the channel.
+                  All selected members will be removed, will not receive future messages, and an admin removal notice will be announced.
                 </p>
                 <div className="flex items-center justify-end gap-2">
                   <button
@@ -614,7 +614,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   </button>
                   <button
                     onClick={handleConfirmBulkRemove}
-                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md"
                   >
                     Remove All Selected
                   </button>

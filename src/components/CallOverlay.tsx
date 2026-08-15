@@ -67,16 +67,16 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-xl p-4 text-slate-100 select-none animate-in fade-in duration-300">
-      <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center p-8 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/95 backdrop-blur-2xl p-4 text-slate-100 select-none animate-in fade-in duration-300">
+      <div className="w-full max-w-2xl bg-[#09112a] border border-blue-900/60 rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center p-8 relative">
         
         {/* Status Badge */}
-        <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-xs font-semibold">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+        <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#050a1b] border border-blue-900/50 text-xs font-semibold">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
           <span className="text-slate-200">
             Wavegram {call.type === "video" ? "HD Video" : "Voice"} Call
           </span>
-          <span className="text-slate-400 font-mono ml-2">{formatDuration(callDurationSeconds)}</span>
+          <span className="text-blue-400 font-mono ml-2">{formatDuration(callDurationSeconds)}</span>
         </div>
 
         {/* AI Voice Filter Indicator */}
@@ -84,8 +84,8 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
           onClick={() => setIsVoiceEnhanced(!isVoiceEnhanced)}
           className={`absolute top-6 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
             isVoiceEnhanced
-              ? "bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/20"
-              : "bg-slate-800 text-slate-400"
+              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/20"
+              : "bg-[#050a1b] text-slate-400 border border-blue-950"
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -93,7 +93,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
         </button>
 
         {/* Main Display Box */}
-        <div className="my-8 flex flex-col items-center justify-center relative w-full h-64 sm:h-80 rounded-2xl bg-slate-950/80 border border-slate-800/80 overflow-hidden shadow-inner">
+        <div className="my-8 flex flex-col items-center justify-center relative w-full h-64 sm:h-80 rounded-2xl bg-[#050a1b] border border-blue-900/50 overflow-hidden shadow-inner">
           {call.type === "video" && !isVideoOff ? (
             <div className="w-full h-full relative">
               <video
@@ -103,14 +103,14 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
                 muted
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-white border border-slate-700">
+              <div className="absolute bottom-4 left-4 bg-[#09112a]/90 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-bold text-white border border-blue-900">
                 You
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
               <div className="relative">
-                <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 shadow-xl shadow-pink-500/20 animate-pulse">
+                <div className="w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-blue-500 via-indigo-500 to-cyan-400 shadow-xl shadow-blue-500/20 animate-pulse">
                   <img
                     src={
                       otherAvatar ||
@@ -123,7 +123,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
               </div>
               <div className="text-center">
                 <h3 className="text-2xl font-bold text-slate-100">{otherName}</h3>
-                <p className="text-xs text-pink-400 mt-1 font-medium">
+                <p className="text-xs text-cyan-400 mt-1 font-medium">
                   {isVoiceEnhanced ? "✨ Crystal HD Audio Stream Active" : "Standard Audio Stream"}
                 </p>
               </div>
@@ -138,7 +138,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
             className={`p-4 rounded-2xl transition-all shadow-md ${
               isMuted
                 ? "bg-rose-500 text-white"
-                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                : "bg-[#050a1b] hover:bg-[#0c1538] text-slate-200 border border-blue-900"
             }`}
           >
             {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
@@ -150,7 +150,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
               className={`p-4 rounded-2xl transition-all shadow-md ${
                 isVideoOff
                   ? "bg-rose-500 text-white"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  : "bg-[#050a1b] hover:bg-[#0c1538] text-slate-200 border border-blue-900"
               }`}
             >
               {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}

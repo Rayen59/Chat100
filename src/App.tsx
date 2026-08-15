@@ -666,7 +666,7 @@ export default function App() {
       </div>
 
       {/* Main View Area */}
-      <div className={mobileShowChat ? "flex-1 flex flex-col h-full overflow-hidden bg-[#050814] relative w-full" : "hidden md:flex flex-1 flex-col h-full overflow-hidden bg-[#050814] relative"}>
+      <div className={mobileShowChat ? "flex-1 flex flex-col h-full overflow-hidden bg-[#030612] relative w-full" : "hidden md:flex flex-1 flex-col h-full overflow-hidden bg-[#030612] relative"}>
         {viewMode === "analytics" ? (
           <AnalyticsView currentUser={currentUser} onBack={() => {
             setViewMode("chat");
@@ -694,13 +694,13 @@ export default function App() {
             onBlockUser={handleBlockUser}
           />
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 select-none bg-[#050814]">
-            <div className="w-20 h-20 rounded-3xl bg-[#0e1329] border border-red-500/20 flex items-center justify-center mb-4 text-red-500 shadow-[0_0_30px_rgba(239,68,68,0.15)]">
-              <MessageSquare className="w-10 h-10 animate-pulse text-red-500" />
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500 select-none bg-[#030612]">
+            <div className="w-20 h-20 rounded-3xl bg-[#09112a] border border-blue-500/30 flex items-center justify-center mb-4 text-blue-400 shadow-[0_0_35px_rgba(59,130,246,0.2)]">
+              <MessageSquare className="w-10 h-10 animate-pulse text-blue-400" />
             </div>
             <h2 className="text-xl font-extrabold text-white">Welcome to Wavegram</h2>
             <p className="text-xs text-slate-400 max-w-sm mt-1">
-              Select a conversation from the sidebar or choose a user from <span className="text-red-400 font-bold">People</span> to start messaging instantly.
+              Select a conversation from the sidebar or choose a contact from <span className="text-blue-400 font-bold">People</span> to start messaging instantly.
             </p>
           </div>
         )}

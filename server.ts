@@ -384,6 +384,25 @@ app.get("/api/messages/:conversationId", (req: Request, res: Response) => {
   const { conversationId } = req.params;
   const userId = req.query.userId as string;
 
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  if (!conv) {
+    return res.status(404).json({ error: "Conversation not found", messages: [] });
+  }
+
+  // Strictly enforce that if user is removed or not a participant, they cannot fetch any messages
+  if (userId) {
+    if (!conv.participants.includes(userId)) {
+      return res.status(403).json({ error: "You are no longer a participant in this conversation.", messages: [] });
+    }
+
+    if (conv.type === "group" && conv.groupId) {
+      const group = store.groups.find((g) => g.id === conv.groupId);
+      if (!group || !group.memberIds.includes(userId)) {
+        return res.status(403).json({ error: "You are no longer a member of this group.", messages: [] });
+      }
+    }
+  }
+
   let messages = store.messages.filter(
     (m) => m.conversationId === conversationId
   );
@@ -395,8 +414,7 @@ app.get("/api/messages/:conversationId", (req: Request, res: Response) => {
     );
 
     // If this is a group with onlyAdminMessagesVisible enabled and user is not an admin
-    const conv = store.conversations.find((c) => c.id === conversationId);
-    if (conv && conv.type === "group" && conv.groupId) {
+    if (conv.type === "group" && conv.groupId) {
       const group = store.groups.find((g) => g.id === conv.groupId);
       if (group && (group.onlyAdminMessagesVisible || group.announcementMode)) {
         const isAdmin = group.adminIds.includes(userId);
@@ -432,6 +450,11 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   const conv = store.conversations.find((c) => c.id === conversationId);
   if (!conv) return res.status(404).json({ error: "Conversation not found" });
 
+  // Strictly check participant membership
+  if (!conv.participants.includes(senderId)) {
+    return res.status(403).json({ error: "You cannot send messages to this conversation because you are not a member." });
+  }
+
   // 1. If DM conversation, check if recipient has blocked sender
   if (conv.type === "dm") {
     const otherUserId = conv.participants.find((id) => id !== senderId);
@@ -449,6 +472,10 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   // 2. If Group conversation, check permissions
   if (conv.type === "group" && conv.groupId) {
     const group = store.groups.find((g) => g.id === conv.groupId);
+    if (!group || !group.memberIds.includes(senderId)) {
+      return res.status(403).json({ error: "You are no longer a member of this group." });
+    }
+
     if (group) {
       const isAdmin = group.adminIds.includes(senderId);
 

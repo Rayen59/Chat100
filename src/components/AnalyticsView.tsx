@@ -82,28 +82,28 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#050814] overflow-y-auto p-4 sm:p-6 text-slate-100 select-none scrollbar-thin scrollbar-thumb-slate-800">
+    <div className="flex-1 flex flex-col h-full bg-[#030612] overflow-y-auto p-4 sm:p-6 text-slate-100 select-none scrollbar-thin scrollbar-thumb-blue-950">
       
       {/* Header Bar */}
       <div className="max-w-5xl mx-auto w-full mb-6">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0e1329] border border-red-500/20 text-slate-300 hover:text-white hover:bg-red-500/10 transition-colors text-xs font-semibold"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#09112a] border border-blue-500/20 text-slate-300 hover:text-white hover:bg-blue-600/20 transition-colors text-xs font-semibold"
           >
-            <ArrowLeft className="w-4 h-4 text-red-500" />
+            <ArrowLeft className="w-4 h-4 text-blue-400" />
             <span>Back to Chats</span>
           </button>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.15)]">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold shadow-[0_0_15px_rgba(37,99,235,0.15)]">
+            <Sparkles className="w-3.5 h-3.5 animate-pulse text-cyan-400" />
             <span>Wavegram Realtime Analytics</span>
           </div>
         </div>
 
         {/* Title */}
         <div className="flex items-start gap-2.5 mb-2">
-          <span className="w-3 h-3 rounded-full bg-red-500 mt-2 shrink-0 animate-ping" />
+          <span className="w-3 h-3 rounded-full bg-blue-500 mt-2 shrink-0 animate-ping" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
               Activity & Usage Analytics
@@ -115,13 +115,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
 
         {/* Filter Bar & Export */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pb-4 border-b border-slate-800/80">
-          <div className="flex items-center gap-1.5 bg-[#0b0f24] p-1 rounded-2xl border border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-5 pb-4 border-b border-blue-950">
+          <div className="flex items-center gap-1.5 bg-[#09112a] p-1 rounded-2xl border border-blue-950">
             <button
               onClick={() => setTimeRange("7days")}
               className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 timeRange === "7days"
-                  ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -131,7 +131,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               onClick={() => setTimeRange("30days")}
               className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 timeRange === "30days"
-                  ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -141,7 +141,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               onClick={() => setTimeRange("all")}
               className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 timeRange === "all"
-                  ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -151,7 +151,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
           <button
             onClick={handleExportJSON}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#0e1329] hover:bg-[#161c3b] border border-red-500/30 text-red-400 hover:text-white text-xs font-semibold shadow-md transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#09112a] hover:bg-[#0f1b40] border border-blue-500/30 text-blue-400 hover:text-white text-xs font-semibold shadow-md transition-all active:scale-95"
           >
             <Download className="w-4 h-4" />
             <span>Export JSON</span>
@@ -161,19 +161,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin" />
+          <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
         </div>
       ) : data ? (
         <div className="space-y-6 max-w-5xl mx-auto w-full pb-16">
           
-          {/* Metric Cards Grid (Matching Screenshot 1) */}
+          {/* Metric Cards Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             
             {/* Card 1: Hours Spent */}
-            <div className="p-5 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-red-500/40 transition-all">
+            <div className="p-5 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/40 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-400">Hours Spent</span>
-                <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   <Clock className="w-5 h-5" />
                 </div>
               </div>
@@ -187,10 +187,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
 
             {/* Card 2: Total Messages */}
-            <div className="p-5 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-red-500/40 transition-all">
+            <div className="p-5 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/40 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-400">Total Messages</span>
-                <div className="p-2.5 rounded-2xl bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   <MessageSquare className="w-5 h-5" />
                 </div>
               </div>
@@ -204,7 +204,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
 
             {/* Card 3: Call Duration */}
-            <div className="p-5 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-red-500/40 transition-all">
+            <div className="p-5 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/40 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-400">Call Duration</span>
                 <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
@@ -221,7 +221,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
 
             {/* Card 4: Active Streak */}
-            <div className="p-5 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-red-500/40 transition-all">
+            <div className="p-5 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-blue-500/40 transition-all">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-slate-400">Active Streak</span>
                 <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -238,12 +238,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
           </div>
 
-          {/* Section 1: Messaging Activity Curve (Sent vs Received) - Matching Screenshot 1 & 2 */}
-          <div className="p-6 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl">
+          {/* Section 1: Messaging Activity Curve (Sent vs Received) */}
+          <div className="p-6 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
               <div>
                 <h3 className="font-bold text-base text-white flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-rose-500" />
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
                   Messaging Activity Curve (Sent vs Received)
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -253,11 +253,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 
               <div className="flex items-center gap-4 text-xs font-medium">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-rose-500" />
+                  <span className="w-3 h-3 rounded-full bg-blue-500" />
                   <span className="text-slate-300">Sent</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-indigo-500" />
+                  <span className="w-3 h-3 rounded-full bg-cyan-400" />
                   <span className="text-slate-300">Received</span>
                 </div>
               </div>
@@ -268,19 +268,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                 <AreaChart data={data.dailyTrends}>
                   <defs>
                     <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorReceived" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="date" stroke="#475569" fontSize={12} tickLine={false} />
                   <YAxis stroke="#475569" fontSize={12} tickLine={false} domain={[0, 3]} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#0a0d1d",
+                      backgroundColor: "#050a1b",
                       borderColor: "#1e293b",
                       borderRadius: "16px",
                       color: "#fff"
@@ -289,7 +289,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <Area
                     type="monotone"
                     dataKey="sent"
-                    stroke="#f43f5e"
+                    stroke="#3b82f6"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#colorSent)"
@@ -298,7 +298,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   <Area
                     type="monotone"
                     dataKey="received"
-                    stroke="#6366f1"
+                    stroke="#06b6d4"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#colorReceived)"
@@ -309,11 +309,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Hours Spent Chatting & Calling - Matching Screenshot 2 & 3 */}
-          <div className="p-6 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl">
+          {/* Section 2: Hours Spent Chatting & Calling */}
+          <div className="p-6 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl">
             <div className="mb-6">
               <h3 className="font-bold text-base text-white flex items-center gap-2">
-                <Clock className="w-4 h-4 text-rose-500" />
+                <Clock className="w-4 h-4 text-blue-400" />
                 Hours Spent Chatting & Calling
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">Total active app hours per day</p>
@@ -332,19 +332,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#0a0d1d",
+                      backgroundColor: "#050a1b",
                       borderColor: "#1e293b",
                       borderRadius: "16px"
                     }}
                   />
-                  <Bar dataKey="sent" fill="#f43f5e" radius={[8, 8, 0, 0]} name="Active Hours" />
+                  <Bar dataKey="sent" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Active Hours" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Section 3: Peak Activity Curve (24h Heatmap) - Matching Screenshot 3 & 4 */}
-          <div className="p-6 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl">
+          {/* Section 3: Peak Activity Curve (24h Heatmap) */}
+          <div className="p-6 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl">
             <div className="mb-6">
               <h3 className="font-bold text-base text-white flex items-center gap-2">
                 <Zap className="w-4 h-4 text-amber-400" />
@@ -364,7 +364,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                     dataKey="count"
                     stroke="#eab308"
                     strokeWidth={3}
-                    dot={{ fill: "#eab308", r: 5, strokeWidth: 2, stroke: "#050814" }}
+                    dot={{ fill: "#eab308", r: 5, strokeWidth: 2, stroke: "#030612" }}
                     activeDot={{ r: 8, fill: "#fef08a" }}
                   />
                 </LineChart>
@@ -372,8 +372,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
           </div>
 
-          {/* Section 4: Top Contact Engagements - Matching Screenshot 4 */}
-          <div className="p-6 rounded-3xl bg-[#0c0f24] border border-slate-800/80 shadow-xl">
+          {/* Section 4: Top Contact Engagements */}
+          <div className="p-6 rounded-3xl bg-[#09112a] border border-blue-950 shadow-xl">
             <div className="mb-4">
               <h3 className="font-bold text-base text-white flex items-center gap-2">
                 <Users className="w-4 h-4 text-cyan-400" />
@@ -388,13 +388,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
               {data.topContacts.map((contact, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-2xl bg-[#080b1a] border border-slate-800/80 hover:border-slate-700 transition-all flex items-center justify-between gap-3"
+                  className="p-4 rounded-2xl bg-[#050a1b] border border-blue-950 hover:border-blue-900 transition-all flex items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-3">
                     <img
                       src={contact.avatar}
                       alt={contact.name}
-                      className="w-12 h-12 rounded-2xl object-cover bg-slate-800"
+                      className="w-12 h-12 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/30"
                     />
                     <div>
                       <h4 className="font-bold text-sm text-white">{contact.name}</h4>
@@ -405,7 +405,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <p className="text-xs font-bold text-rose-400">{contact.hoursSpent}</p>
+                    <p className="text-xs font-bold text-blue-400">{contact.hoursSpent}</p>
                     <p className="text-[11px] font-medium text-slate-400 mt-0.5">
                       {contact.responseTime}
                     </p>
@@ -419,7 +419,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       ) : null}
 
       {/* Bottom Sticky Mobile Navigation Bar */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-1.5 rounded-full bg-[#0d1228]/90 border border-slate-800 backdrop-blur-xl shadow-2xl">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-1.5 rounded-full bg-[#09112a]/95 border border-blue-900/60 backdrop-blur-xl shadow-2xl">
         <button
           onClick={onBack}
           className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all"
@@ -428,7 +428,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           <span>Chats</span>
         </button>
         <button
-          className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30"
+          className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30"
         >
           <BarChart2 className="w-4 h-4" />
           <span>Analytics</span>

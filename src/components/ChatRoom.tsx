@@ -430,18 +430,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 relative overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-[#030612] relative overflow-hidden select-none">
       
       {/* Header */}
-      <div className="p-3 px-4 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md flex items-center justify-between z-10">
+      <div className="p-3 px-4 border-b border-blue-950/70 bg-[#09112a]/90 backdrop-blur-xl flex items-center justify-between z-10 shadow-md">
         <div className="flex items-center gap-2 sm:gap-3">
           {onBackMobile && (
             <button
               onClick={onBackMobile}
-              className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-blue-900/40 transition-colors"
               title="Back to chats"
             >
-              <ArrowLeft className="w-5 h-5 text-red-500" />
+              <ArrowLeft className="w-5 h-5 text-blue-400" />
             </button>
           )}
 
@@ -459,18 +459,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               <img
                 src={avatar}
                 alt={title}
-                className="w-10 h-10 rounded-2xl object-cover bg-slate-800 ring-2 ring-red-500/30 group-hover:scale-105 transition-transform"
+                className="w-11 h-11 rounded-2xl object-cover bg-slate-800 ring-2 ring-blue-500/40 group-hover:scale-105 transition-transform shadow-md shadow-blue-500/20"
               />
               {isOnline && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#09112a] shadow-[0_0_6px_#34d399]" />
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-slate-100 text-sm group-hover:text-red-400 transition-colors">{title}</h2>
+                <h2 className="font-bold text-slate-100 text-sm group-hover:text-blue-400 transition-colors">{title}</h2>
                 {group?.themeColor && (
                   <span
-                    className="w-2.5 h-2.5 rounded-full"
+                    className="w-2.5 h-2.5 rounded-full ring-1 ring-white/40"
                     style={{ backgroundColor: group.themeColor }}
                   />
                 )}
@@ -493,18 +493,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1 relative">
+        <div className="flex items-center gap-1.5 relative">
           <button
             onClick={() => onStartCall("voice")}
             title="Start Voice Call"
-            className="p-2.5 rounded-xl text-slate-300 hover:text-pink-400 hover:bg-slate-800 transition-colors"
+            className="p-2.5 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-blue-900/30 transition-colors"
           >
             <Phone className="w-4 h-4" />
           </button>
           <button
             onClick={() => onStartCall("video")}
             title="Start Video Call"
-            className="p-2.5 rounded-xl text-slate-300 hover:text-pink-400 hover:bg-slate-800 transition-colors"
+            className="p-2.5 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-blue-900/30 transition-colors"
           >
             <Video className="w-4 h-4" />
           </button>
@@ -512,7 +512,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             <button
               onClick={onOpenGroupSettings}
               title="Group Info & Settings"
-              className="p-2.5 rounded-xl text-slate-300 hover:text-pink-400 hover:bg-slate-800 transition-colors"
+              className="p-2.5 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-blue-900/30 transition-colors"
             >
               <Info className="w-4 h-4" />
             </button>
@@ -521,20 +521,20 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               <button
                 onClick={() => setShowHeaderMenu(!showHeaderMenu)}
                 title="Chat Options"
-                className="p-2.5 rounded-xl text-slate-300 hover:text-pink-400 hover:bg-slate-800 transition-colors"
+                className="p-2.5 rounded-xl text-slate-300 hover:text-blue-400 hover:bg-blue-900/30 transition-colors"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
 
               {showHeaderMenu && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-[#0b0f24] border border-slate-800 rounded-2xl p-1.5 shadow-2xl z-30 space-y-1">
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[#09112a] border border-blue-900/50 rounded-2xl p-1.5 shadow-2xl z-30 space-y-1">
                   {otherUserId && onBlockUser && (
                     <button
                       onClick={() => {
                         onBlockUser(otherUserId);
                         setShowHeaderMenu(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-slate-800 text-slate-200 transition-colors"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-blue-900/40 text-slate-200 transition-colors"
                     >
                       {currentUser.blockedUserIds?.includes(otherUserId) ? (
                         <>
@@ -556,9 +556,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         setShowHeaderMenu(false);
                         setShowDeleteConfirmModal(true);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-red-950/60 text-red-400 transition-colors"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-rose-950/60 text-rose-400 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-red-400" />
+                      <Trash2 className="w-4 h-4 text-rose-400" />
                       <span>Delete Chat</span>
                     </button>
                   )}
@@ -570,13 +570,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-800">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-900/30">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
-            <div className="w-16 h-16 rounded-full bg-slate-900/80 border border-slate-800 flex items-center justify-center mb-3 text-pink-400">
+            <div className="w-16 h-16 rounded-3xl bg-[#09112a] border border-blue-900/50 flex items-center justify-center mb-3 text-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.2)]">
               <Sparkles className="w-8 h-8 animate-pulse" />
             </div>
-            <p className="font-semibold text-slate-400">No messages here yet</p>
+            <p className="font-semibold text-slate-300">No messages here yet</p>
             <p className="text-[11px] mt-1 text-slate-500">Say hello or send a voice note!</p>
           </div>
         ) : (
@@ -585,8 +585,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             if (msg.isSystem) {
               return (
                 <div key={msg.id} className="flex justify-center my-2 select-none">
-                  <div className="px-3.5 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-300 text-[11px] flex items-center gap-1.5 shadow-sm max-w-md text-center">
-                    <Sparkles className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  <div className="px-3.5 py-1.5 rounded-full bg-[#09112a]/90 border border-blue-900/50 text-slate-300 text-[11px] flex items-center gap-1.5 shadow-sm max-w-md text-center">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     <span>{msg.text}</span>
                   </div>
                 </div>
@@ -610,7 +610,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         onSelectUserProfile(senderUser);
                       }
                     }}
-                    className="text-[10px] font-bold text-red-400 hover:underline mb-0.5 ml-1 text-left"
+                    className="text-[10px] font-bold text-blue-400 hover:underline mb-0.5 ml-1 text-left"
                   >
                     {msg.senderName}
                   </button>
@@ -619,11 +619,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 {/* Quoted Reply if any */}
                 {msg.replyTo && (
                   <div
-                    className={`max-w-[80%] text-[11px] p-2 rounded-xl mb-1 border-l-2 bg-slate-900/90 text-slate-300 ${
-                      isMe ? "border-pink-500" : "border-indigo-500"
+                    className={`max-w-[80%] text-[11px] p-2 rounded-xl mb-1 border-l-2 bg-[#09112a] text-slate-300 ${
+                      isMe ? "border-blue-500" : "border-indigo-500"
                     }`}
                   >
-                    <p className="font-bold text-[10px] text-pink-400">{msg.replyTo.senderName}</p>
+                    <p className="font-bold text-[10px] text-blue-400">{msg.replyTo.senderName}</p>
                     <p className="truncate opacity-80">{msg.replyTo.text}</p>
                   </div>
                 )}
@@ -637,7 +637,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       style={{
                         transform: `translate(${particle.x}px, ${particle.y}px)`,
                       }}
-                      className="absolute top-2 z-40 text-2xl animate-bounce pointer-events-none transition-all duration-1000 opacity-90 scale-125 drop-shadow-[0_0_10px_rgba(244,63,94,0.8)]"
+                      className="absolute top-2 z-40 text-2xl animate-bounce pointer-events-none transition-all duration-1000 opacity-90 scale-125 drop-shadow-[0_0_12px_rgba(59,130,246,0.9)]"
                     >
                       {particle.emoji}
                     </div>
@@ -654,8 +654,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   onTouchEnd={handleTouchEnd}
                   className={`relative max-w-[82%] sm:max-w-[70%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
                     isMe
-                      ? "bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-br-none"
-                      : "bg-slate-800 border border-slate-700/80 text-slate-100 rounded-bl-none"
+                      ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-br-none shadow-blue-600/20"
+                      : "bg-[#09112a] border border-blue-900/40 text-slate-100 rounded-bl-none hover:border-blue-800/60"
                   }`}
                 >
                   {/* Edited indicator */}
@@ -684,7 +684,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                             onEditMessage(msg.id, editingText);
                             setEditingMsgId(null);
                           }}
-                          className="px-2 py-0.5 rounded text-[10px] bg-pink-500 hover:bg-pink-400 font-bold"
+                          className="px-2 py-0.5 rounded text-[10px] bg-blue-500 hover:bg-blue-400 font-bold"
                         >
                           Save
                         </button>
@@ -751,7 +751,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                             </div>
                             <div className="flex items-center justify-between mt-1 text-[10px] opacity-90 font-mono">
                               <span>0:0{msg.duration || 3}</span>
-                              <span className="flex items-center gap-0.5 text-emerald-300 font-semibold font-sans">
+                              <span className="flex items-center gap-0.5 text-cyan-300 font-semibold font-sans">
                                 <Sparkles className="w-2.5 h-2.5" /> HD Audio
                               </span>
                             </div>
@@ -770,7 +770,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       {msg.type === "file" && (
                         <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/30 border border-white/10 text-xs my-1 shadow-inner">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="p-2 rounded-lg bg-pink-500/20 text-pink-300 shrink-0">
+                            <div className="p-2 rounded-lg bg-blue-500/20 text-blue-300 shrink-0">
                               <FileText className="w-5 h-5" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -784,7 +784,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                               download={msg.mediaName || "document.pdf"}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-2 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-lg flex items-center gap-1 font-bold text-[11px] shadow-md shadow-pink-500/20 transition-all shrink-0 active:scale-95 cursor-pointer"
+                              className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg flex items-center gap-1 font-bold text-[11px] shadow-md shadow-blue-500/20 transition-all shrink-0 active:scale-95 cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>Download</span>
@@ -808,8 +808,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                             onClick={() => onReactMessage(msg.id, emoji)}
                             className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 border transition-all ${
                               usersList.includes(currentUser.id)
-                                ? "bg-pink-500/20 border-pink-400 text-pink-200"
-                                : "bg-slate-900/60 border-slate-700 text-slate-300"
+                                ? "bg-blue-500/20 border-blue-400 text-blue-200"
+                                : "bg-[#050a1b] border-blue-900/60 text-slate-300"
                             }`}
                           >
                             <span>{emoji}</span>
@@ -822,7 +822,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
                   {/* Double tap Heart Overlay */}
                   {hasLiked && (
-                    <div className="absolute -bottom-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg ring-2 ring-slate-900 animate-bounce">
+                    <div className="absolute -bottom-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-lg ring-2 ring-[#09112a] animate-bounce">
                       <Heart className="w-3 h-3 fill-current" />
                     </div>
                   )}
@@ -835,7 +835,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         minute: "2-digit"
                       })}
                     </span>
-                    {isMe && <CheckCheck className="w-3 h-3 text-pink-200" />}
+                    {isMe && <CheckCheck className="w-3 h-3 text-blue-200" />}
                   </div>
                 </div>
 
@@ -843,19 +843,19 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 <div
                   className={`absolute top-0 ${
                     isMe ? "right-full mr-2" : "left-full ml-2"
-                  } hidden group-hover:flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-2xl p-1 shadow-xl z-20`}
+                  } hidden group-hover:flex items-center gap-1 bg-[#09112a] border border-blue-900/50 rounded-2xl p-1 shadow-xl z-20`}
                 >
                   <button
                     onClick={() => setContextMenuMsg(msg)}
                     title="More Options & Reactions"
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400 text-xs"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400 text-xs"
                   >
                     <MoreVertical className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
                     title="React with Emoji"
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400 text-xs"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400 text-xs"
                   >
                     <Smile className="w-3.5 h-3.5" />
                   </button>
@@ -869,7 +869,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       })
                     }
                     title="Reply"
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400"
                   >
                     <CornerUpLeft className="w-3.5 h-3.5" />
                   </button>
@@ -878,7 +878,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       setForwardMsg(msg);
                     }}
                     title="Forward Message"
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400"
                   >
                     <Share2 className="w-3.5 h-3.5" />
                   </button>
@@ -891,7 +891,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       }
                     }}
                     title="Copy Text"
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -902,7 +902,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                         setEditingText(msg.text);
                       }}
                       title="Edit"
-                      className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-300 hover:text-pink-400"
+                      className="p-1.5 hover:bg-blue-900/40 rounded-xl text-slate-300 hover:text-blue-400"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -910,7 +910,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   <button
                     onClick={() => onDeleteMessage(msg.id, isMe ? "for_all" : "for_me")}
                     title={isMe ? "Delete for everyone" : "Delete for me"}
-                    className="p-1.5 hover:bg-slate-800 rounded-xl text-rose-400 hover:text-rose-300"
+                    className="p-1.5 hover:bg-blue-900/40 rounded-xl text-rose-400 hover:text-rose-300"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -921,7 +921,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   <div
                     className={`absolute bottom-full mb-2 ${
                       isMe ? "right-0" : "left-0"
-                    } z-30 bg-slate-900 border border-slate-700 rounded-2xl p-2 shadow-2xl grid grid-cols-8 gap-1.5 max-w-[280px] animate-in zoom-in-95`}
+                    } z-30 bg-[#09112a] border border-blue-900/60 rounded-2xl p-2 shadow-2xl grid grid-cols-8 gap-1.5 max-w-[280px] animate-in zoom-in-95`}
                   >
                     {EMOJI_LIST.map((emoji) => (
                       <button
@@ -930,7 +930,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                           onReactMessage(msg.id, emoji);
                           setShowEmojiPicker(null);
                         }}
-                        className="text-lg hover:scale-125 transition-transform p-1 rounded-lg hover:bg-slate-800 flex items-center justify-center"
+                        className="text-lg hover:scale-125 transition-transform p-1 rounded-lg hover:bg-blue-900/40 flex items-center justify-center"
                       >
                         {emoji}
                       </button>
@@ -946,11 +946,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
       {/* Reply Preview Bar */}
       {replyTo && (
-        <div className="px-4 py-2 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
-          <div className="flex items-center gap-2 border-l-2 border-pink-500 pl-2">
-            <CornerUpLeft className="w-4 h-4 text-pink-400" />
+        <div className="px-4 py-2 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center gap-2 border-l-2 border-blue-500 pl-2">
+            <CornerUpLeft className="w-4 h-4 text-blue-400" />
             <div>
-              <p className="font-bold text-pink-400 text-[11px]">{replyTo.senderName}</p>
+              <p className="font-bold text-blue-400 text-[11px]">{replyTo.senderName}</p>
               <p className="truncate text-slate-400 text-[10px] max-w-xs">{replyTo.text}</p>
             </div>
           </div>
@@ -965,17 +965,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
       {/* Input Bar or Restricted/Blocked Notice */}
       {isRestrictedInGroup ? (
-        <div className="p-3.5 bg-rose-950/30 border-t border-rose-800/30 flex items-center justify-center gap-2 text-rose-300 text-xs font-semibold">
+        <div className="p-3.5 bg-rose-950/40 border-t border-rose-900/40 flex items-center justify-center gap-2 text-rose-300 text-xs font-semibold">
           <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
           <span>You have been restricted to read-only mode by group administrators.</span>
         </div>
       ) : isAnnouncementOnly ? (
-        <div className="p-3.5 bg-amber-950/30 border-t border-amber-800/30 flex items-center justify-center gap-2 text-amber-300 text-xs font-semibold">
+        <div className="p-3.5 bg-amber-950/40 border-t border-amber-900/40 flex items-center justify-center gap-2 text-amber-300 text-xs font-semibold">
           <Megaphone className="w-4 h-4 text-amber-400 shrink-0" />
           <span>Broadcast Channel: Only group admins can send messages.</span>
         </div>
       ) : isOtherUserBlocked ? (
-        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between px-4 text-xs text-slate-300">
+        <div className="p-3 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-between px-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
             <UserX className="w-4 h-4 text-amber-400 shrink-0" />
             <span>You have blocked this contact.</span>
@@ -983,19 +983,19 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           {onBlockUser && otherUserId && (
             <button
               onClick={() => onBlockUser(otherUserId)}
-              className="px-3 py-1.5 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded-xl text-xs font-bold border border-pink-500/30 transition-colors"
+              className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl text-xs font-bold border border-blue-500/30 transition-colors"
             >
               Unblock User
             </button>
           )}
         </div>
       ) : isMeBlockedByOther ? (
-        <div className="p-3.5 bg-slate-900 border-t border-slate-800 flex items-center justify-center gap-2 text-slate-400 text-xs font-medium">
+        <div className="p-3.5 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-center gap-2 text-slate-400 text-xs font-medium">
           <Lock className="w-4 h-4 text-slate-500 shrink-0" />
           <span>You cannot send messages to this contact.</span>
         </div>
       ) : (
-        <div className="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+        <div className="p-3 bg-[#09112a] border-t border-blue-950/70 flex items-center gap-2">
           <input
             type="file"
             ref={fileInputRef}
@@ -1006,7 +1006,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <button
             onClick={() => fileInputRef.current?.click()}
             title="Attach File or Media"
-            className="p-2.5 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+            className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0"
           >
             <Paperclip className="w-5 h-5" />
           </button>
@@ -1014,7 +1014,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <button
             onClick={() => setShowGifModal(true)}
             title="Search GIFs"
-            className="p-2 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors font-bold text-xs border border-slate-700 px-2.5 shrink-0"
+            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors font-bold text-xs border border-blue-900/50 px-2.5 shrink-0"
           >
             GIF
           </button>
@@ -1041,7 +1041,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                className="w-full bg-slate-800/80 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 text-slate-100 placeholder-slate-500"
+                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all"
               />
             </div>
           )}
@@ -1050,7 +1050,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             <button
               onClick={startRecording}
               title="Hold to Record Voice Note"
-              className="p-2.5 text-slate-400 hover:text-pink-400 hover:bg-slate-800 rounded-xl transition-colors shrink-0"
+              className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0"
             >
               <Mic className="w-5 h-5" />
             </button>
@@ -1059,7 +1059,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <button
             onClick={handleSend}
             disabled={!inputText.trim()}
-            className="p-2.5 bg-gradient-to-r from-pink-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-xl shadow-lg shadow-pink-500/20 disabled:opacity-40 transition-all shrink-0 active:scale-95"
+            className="p-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-xl shadow-lg shadow-blue-600/25 disabled:opacity-40 transition-all shrink-0 active:scale-95"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -1068,8 +1068,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
       {/* GIF Picker Modal */}
       {showGifModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 w-full max-w-md text-slate-100 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4">
+          <div className="bg-[#09112a] border border-blue-900/60 rounded-3xl p-5 w-full max-w-md text-slate-100 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-sm text-slate-200">Search & Send GIFs</h3>
               <button
@@ -1085,7 +1085,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               placeholder="Search GIFs..."
               value={gifQuery}
               onChange={(e) => setGifQuery(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white mb-4 focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
 
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto p-1">
@@ -1100,7 +1100,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     });
                     setShowGifModal(false);
                   }}
-                  className="rounded-xl overflow-hidden hover:scale-105 transition-transform bg-slate-800 aspect-video"
+                  className="rounded-xl overflow-hidden hover:scale-105 transition-transform bg-[#050a1b] aspect-video"
                 >
                   <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
                 </button>
@@ -1109,19 +1109,20 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           </div>
         </div>
       )}
+
       {/* Long Click / Context Menu Overlay Modal */}
       {contextMenuMsg && (
         <div
           onClick={() => setContextMenuMsg(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn select-none"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4 select-none"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm bg-[#0b0f24] border border-red-500/30 rounded-3xl p-5 text-slate-100 shadow-[0_0_50px_rgba(239,68,68,0.25)] flex flex-col gap-4 animate-in zoom-in-95"
+            className="w-full max-w-sm bg-[#09112a] border border-blue-500/30 rounded-3xl p-5 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.25)] flex flex-col gap-4 animate-in zoom-in-95"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="text-xs font-bold text-red-400">Message Options</span>
+            <div className="flex items-center justify-between border-b border-blue-950 pb-2">
+              <span className="text-xs font-bold text-blue-400">Message Options</span>
               <button
                 onClick={() => setContextMenuMsg(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-white"
@@ -1133,7 +1134,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             {/* Quick 24 Emoji Reactions Bar */}
             <div>
               <p className="text-[11px] font-semibold text-slate-400 mb-2">Reactions (24+ Emojis)</p>
-              <div className="grid grid-cols-6 gap-2 bg-[#050814] p-3 rounded-2xl border border-slate-800/80 max-h-36 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+              <div className="grid grid-cols-6 gap-2 bg-[#050a1b] p-3 rounded-2xl border border-blue-950 max-h-36 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-900/40">
                 {EMOJI_LIST.map((emoji) => (
                   <button
                     key={emoji}
@@ -1141,7 +1142,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       onReactMessage(contextMenuMsg.id, emoji);
                       setContextMenuMsg(null);
                     }}
-                    className="text-xl p-1.5 rounded-xl hover:bg-slate-800 hover:scale-125 transition-all flex items-center justify-center"
+                    className="text-xl p-1.5 rounded-xl hover:bg-blue-900/40 hover:scale-125 transition-all flex items-center justify-center"
                   >
                     {emoji}
                   </button>
@@ -1161,9 +1162,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   });
                   setContextMenuMsg(null);
                 }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-900/30 text-slate-200 transition-colors"
               >
-                <CornerUpLeft className="w-4 h-4 text-pink-400" />
+                <CornerUpLeft className="w-4 h-4 text-blue-400" />
                 <span>Reply to message</span>
               </button>
 
@@ -1176,7 +1177,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   }
                   setContextMenuMsg(null);
                 }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-900/30 text-slate-200 transition-colors"
               >
                 <Copy className="w-4 h-4 text-indigo-400" />
                 <span>Copy text</span>
@@ -1187,7 +1188,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   setForwardMsg(contextMenuMsg);
                   setContextMenuMsg(null);
                 }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-900/30 text-slate-200 transition-colors"
               >
                 <Share2 className="w-4 h-4 text-cyan-400" />
                 <span>Forward message</span>
@@ -1200,7 +1201,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     setEditingText(contextMenuMsg.text);
                     setContextMenuMsg(null);
                   }}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-slate-200 transition-colors"
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-900/30 text-slate-200 transition-colors"
                 >
                   <Edit2 className="w-4 h-4 text-amber-400" />
                   <span>Edit message</span>
@@ -1212,7 +1213,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   onDeleteMessage(contextMenuMsg.id, "for_me");
                   setContextMenuMsg(null);
                 }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-800 text-rose-300 transition-colors"
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-blue-900/30 text-rose-300 transition-colors"
               >
                 <Trash2 className="w-4 h-4 text-rose-400" />
                 <span>Delete for me</span>
@@ -1261,9 +1262,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
       {/* Delete Chat Confirmation Modal */}
       {showDeleteConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0b0f24] border border-red-500/40 rounded-3xl p-6 w-full max-w-sm text-slate-100 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-red-400 font-extrabold text-base">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4">
+          <div className="bg-[#09112a] border border-rose-500/40 rounded-3xl p-6 w-full max-w-sm text-slate-100 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400 font-extrabold text-base">
               <Trash2 className="w-5 h-5 shrink-0" />
               <span>Delete Chat Conversation?</span>
             </div>
@@ -1278,13 +1279,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     onDeleteConversation(conversation.id);
                   }
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 transition-all active:scale-95"
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition-all active:scale-95"
               >
                 Yes, Delete Chat
               </button>
               <button
                 onClick={() => setShowDeleteConfirmModal(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors"
+                className="px-4 py-2.5 rounded-xl bg-[#050a1b] hover:bg-[#0c1636] text-slate-300 font-semibold text-xs border border-blue-950 transition-colors"
               >
                 Cancel
               </button>
