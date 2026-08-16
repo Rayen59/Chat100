@@ -38,15 +38,15 @@ type FilterType = "normal" | "vivid" | "cyber" | "gold" | "pastel" | "noir";
 
 const SAMPLE_TEMPLATES = [
   {
-    name: "Plume d'Or Royale",
+    name: "Royal Gold Feather",
     url: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=400&auto=format&fit=crop&q=80",
     shape: "feather" as ShapeType,
     outline: "gold" as OutlineType,
     anim: "gold" as AnimationType,
-    caption: "LÉGENDAIRE"
+    caption: "LEGENDARY"
   },
   {
-    name: "Plume de Paon Magique",
+    name: "Magic Peacock Feather",
     url: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=400&auto=format&fit=crop&q=80",
     shape: "circle" as ShapeType,
     outline: "cyan" as OutlineType,
@@ -54,7 +54,7 @@ const SAMPLE_TEMPLATES = [
     caption: "ROYAL"
   },
   {
-    name: "Cœur Flamboyant",
+    name: "Flaming Heart",
     url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=400&auto=format&fit=crop&q=80",
     shape: "heart" as ShapeType,
     outline: "white" as OutlineType,
@@ -62,7 +62,7 @@ const SAMPLE_TEMPLATES = [
     caption: "LOVE"
   },
   {
-    name: "Étoile Cyberpunk",
+    name: "Cyberpunk Star",
     url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400&auto=format&fit=crop&q=80",
     shape: "star" as ShapeType,
     outline: "cyan" as OutlineType,
@@ -77,7 +77,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
   onClose
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [title, setTitle] = useState("Mon Sticker Magique");
+  const [title, setTitle] = useState("My Magic Sticker");
   
   // Customization states
   const [shape, setShape] = useState<ShapeType>("circle");
@@ -299,13 +299,13 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
 
   // Construct final Sticker object
   const buildStickerItem = (): StickerItem => {
-    const isPlume = shape === "feather" || title.toLowerCase().includes("plume") || animation === "feather-float";
+    const isPlume = shape === "feather" || title.toLowerCase().includes("plume") || title.toLowerCase().includes("feather") || animation === "feather-float";
     return {
       id: `custom_stk_${Date.now()}`,
-      title: title || "Mon Sticker Personnalisé",
+      title: title || "Custom Sticker",
       url: generatedStickerUrl || imageSrc || "",
       category: isPlume ? "plumes" : "custom",
-      tags: ["custom", shape, filter, isPlume ? "plume" : "sticker"],
+      tags: ["custom", shape, filter, isPlume ? "feather" : "sticker"],
       isFeather: isPlume,
       animationStyle: animation,
       isCustom: true,
@@ -380,7 +380,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-400 animate-spin-slow" />
-            <span className="text-xs font-bold text-slate-200">Aperçu Animé en Direct</span>
+            <span className="text-xs font-bold text-slate-200">Live Animated Preview</span>
           </div>
           <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/30">
             {animation.toUpperCase()}
@@ -410,7 +410,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           ) : (
             <div className="flex flex-col items-center text-slate-500 gap-2">
               <Upload className="w-8 h-8 text-blue-400 animate-bounce" />
-              <span className="text-xs">Choisissez une image</span>
+              <span className="text-xs">Choose an image</span>
             </div>
           )}
         </div>
@@ -422,13 +422,13 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
             className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all hover:scale-[1.02] active:scale-95"
           >
             <Upload className="w-4 h-4 text-white" />
-            <span>Choisir une Image de la Galerie</span>
+            <span>Select Image from Gallery</span>
           </button>
 
           {/* Quick Preset Samples */}
           <div className="space-y-1.5">
             <span className="text-[10px] text-slate-400 font-semibold block px-1">
-              Ou démarrer avec un modèle :
+              Or start with a template:
             </span>
             <div className="grid grid-cols-4 gap-1.5">
               {SAMPLE_TEMPLATES.map((sample, idx) => (
@@ -460,19 +460,19 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#050a1b] p-3.5 rounded-2xl border border-blue-900/40">
           <div>
             <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Nom du Sticker
+              Sticker Name
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Plume Flamboyante..."
+              placeholder="e.g. Royal Feather..."
               className="w-full bg-[#09112a] border border-blue-900/50 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="text-[11px] font-bold text-slate-300 block mb-1">
-              Texte / Badge Incrusté (Optionnel)
+              Text / Embedded Badge (Optional)
             </label>
             <div className="flex gap-2">
               <input
@@ -480,7 +480,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
                 value={caption}
                 maxLength={14}
                 onChange={(e) => setCaption(e.target.value)}
-                placeholder="Ex: TOP, BRAVO, VIBES..."
+                placeholder="e.g. TOP, BRAVO, VIBES..."
                 className="flex-1 bg-[#09112a] border border-blue-900/50 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
               />
               <div className="flex items-center gap-1">
@@ -498,19 +498,19 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           </div>
         </div>
 
-        {/* 2. Shape Cutout (Découpage de Formes) */}
+        {/* 2. Shape Cutout */}
         <div className="bg-[#050a1b] p-3.5 rounded-2xl border border-blue-900/40 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
             <Crop className="w-4 h-4 text-cyan-400" />
-            <span>Forme de Découpage (Shape Cutout)</span>
+            <span>Shape Cutout</span>
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
             {[
-              { id: "circle", label: "Cercle", icon: Circle },
+              { id: "circle", label: "Circle", icon: Circle },
               { id: "rounded", label: "Squircle", icon: Square },
-              { id: "feather", label: "🪶 Plume", icon: Feather },
-              { id: "heart", label: "Cœur", icon: Heart },
-              { id: "star", label: "Étoile", icon: Star },
+              { id: "feather", label: "🪶 Feather", icon: Feather },
+              { id: "heart", label: "Heart", icon: Heart },
+              { id: "star", label: "Star", icon: Star },
               { id: "stamp", label: "Badge", icon: Layers }
             ].map((s) => {
               const Icon = s.icon;
@@ -533,21 +533,21 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           </div>
         </div>
 
-        {/* 3. Animation Engine (Stickers Animés) */}
+        {/* 3. Animation Engine */}
         <div className="bg-[#050a1b] p-3.5 rounded-2xl border border-blue-900/40 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
             <Zap className="w-4 h-4 text-amber-400" />
-            <span>Moteur d'Animation du Sticker (Sticker Animation)</span>
+            <span>Sticker Animation Engine</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              { id: "feather-float", label: "🪶 Flottement Plume", desc: "Mouvement fluide et aérien" },
-              { id: "feather-sway", label: "🍃 Balancement Magique", desc: "Oscillation légère" },
-              { id: "gold", label: "👑 Scintillement d'Or", desc: "Lueur royale dorée" },
-              { id: "glow", label: "✨ Aura Néon Cyan", desc: "Pulsation d'énergie" },
-              { id: "pulse", label: "💓 Battement de Cœur", desc: "Zoom pulsant rythmé" },
-              { id: "bounce", label: "🦘 Rebondissement", desc: "Effet dynamique joueur" },
-              { id: "none", label: "⏸️ Statique Pur", desc: "Sans animation" }
+              { id: "feather-float", label: "🪶 Feather Floating", desc: "Smooth airy floating" },
+              { id: "feather-sway", label: "🍃 Magic Sway", desc: "Gentle oscillation" },
+              { id: "gold", label: "👑 Golden Sparkle", desc: "Royal gold shimmer" },
+              { id: "glow", label: "✨ Neon Cyan Aura", desc: "Electric pulse glow" },
+              { id: "pulse", label: "💓 Heartbeat Pulse", desc: "Rhythmic zoom pulse" },
+              { id: "bounce", label: "🦘 Bounce Jump", desc: "Playful dynamic bounce" },
+              { id: "none", label: "⏸️ Static Pure", desc: "No animation" }
             ].map((anim) => {
               const isSel = animation === anim.id;
               return (
@@ -568,18 +568,18 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           </div>
         </div>
 
-        {/* 4. Sticker Contour & Glow (Contour & Aura) */}
+        {/* 4. Sticker Contour & Glow */}
         <div className="bg-[#050a1b] p-3.5 rounded-2xl border border-blue-900/40 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
             <Palette className="w-4 h-4 text-pink-400" />
-            <span>Contour & Aura du Sticker (Border Glow)</span>
+            <span>Sticker Border & Aura Glow</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { id: "white", label: "Contour Blanc Sticker", sub: "Style WhatsApp/Telegram" },
-              { id: "cyan", label: "Aura Néon Cyan", sub: "Glow lumineux électrique" },
-              { id: "gold", label: "Aura Dorée Royale", sub: "Scintillement or pur" },
-              { id: "none", label: "Sans Contour", sub: "Bord transparent net" }
+              { id: "white", label: "White Sticker Outline", sub: "Classic sticker border" },
+              { id: "cyan", label: "Neon Cyan Aura", sub: "Electric luminous glow" },
+              { id: "gold", label: "Royal Gold Aura", sub: "Shimmering gold edge" },
+              { id: "none", label: "No Outline", sub: "Crisp clean edge" }
             ].map((o) => {
               const isSel = outline === o.id;
               return (
@@ -605,7 +605,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-slate-200">
             <div className="flex items-center gap-2">
               <Sliders className="w-4 h-4 text-emerald-400" />
-              <span>Ajustements & Transformations</span>
+              <span>Adjustments & Transformations</span>
             </div>
             <button
               onClick={() => {
@@ -619,7 +619,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
               }}
               className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
             >
-              <RefreshCw className="w-3 h-3" /> Réinitialiser
+              <RefreshCw className="w-3 h-3" /> Reset
             </button>
           </div>
 
@@ -627,7 +627,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
             {/* Zoom Slider */}
             <div>
               <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Zoom / Échelle</span>
+                <span>Zoom / Scale</span>
                 <span>{Math.round(zoom * 100)}%</span>
               </div>
               <input
@@ -660,7 +660,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
                 <button
                   onClick={() => setRotation((r) => (r + 90) % 360)}
                   className="p-1 rounded-lg bg-blue-900/50 hover:bg-blue-800 text-slate-200"
-                  title="Tourner 90°"
+                  title="Rotate 90°"
                 >
                   <RotateCw className="w-3 h-3" />
                 </button>
@@ -670,7 +670,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
             {/* Horizontal & Vertical Pan */}
             <div>
               <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Décalage Horizontal (X)</span>
+                <span>Horizontal Offset (X)</span>
                 <span>{offsetX}px</span>
               </div>
               <input
@@ -684,7 +684,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
             </div>
             <div>
               <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                <span>Décalage Vertical (Y)</span>
+                <span>Vertical Offset (Y)</span>
                 <span>{offsetY}px</span>
               </div>
               <input
@@ -700,15 +700,15 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
 
           {/* Color Filter Presets */}
           <div className="pt-2 border-t border-blue-950/60">
-            <span className="text-[11px] font-bold text-slate-300 block mb-1.5">Filtres de Couleurs</span>
+            <span className="text-[11px] font-bold text-slate-300 block mb-1.5">Color Filters</span>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {[
-                { id: "normal", label: "Naturel" },
-                { id: "vivid", label: "🔥 Pop Vibrant" },
-                { id: "gold", label: "👑 Or Lumineux" },
-                { id: "cyber", label: "⚡ Cyber Néon" },
-                { id: "pastel", label: "🌸 Pastel Doux" },
-                { id: "noir", label: "🎬 Noir & Blanc" }
+                { id: "normal", label: "Normal" },
+                { id: "vivid", label: "🔥 Vivid Pop" },
+                { id: "gold", label: "👑 Golden Glow" },
+                { id: "cyber", label: "⚡ Cyber Neon" },
+                { id: "pastel", label: "🌸 Soft Pastel" },
+                { id: "noir", label: "🎬 Monochrome Noir" }
               ].map((f) => (
                 <button
                   key={f.id}
@@ -731,7 +731,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
           {savedSuccess && (
             <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold animate-in fade-in">
               <Check className="w-4 h-4" />
-              <span>Sticker enregistré dans votre bibliothèque !</span>
+              <span>Sticker saved to your library!</span>
             </div>
           )}
           {!savedSuccess && <div />}
@@ -742,7 +742,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
               className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-[#09112a] hover:bg-[#0e1b40] text-slate-200 hover:text-white font-bold text-xs border border-blue-800/60 flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95"
             >
               <Save className="w-4 h-4 text-cyan-400" />
-              <span>Enregistrer</span>
+              <span>Save</span>
             </button>
 
             <button
@@ -750,7 +750,7 @@ export const StickerMaker: React.FC<StickerMakerProps> = ({
               className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30 transition-all hover:scale-105 active:scale-95"
             >
               <Send className="w-4 h-4 text-white" />
-              <span>Envoyer dans le Chat</span>
+              <span>Send in Chat</span>
             </button>
           </div>
         </div>

@@ -127,7 +127,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
           if (customStickers.length > 0) {
             cats.unshift({
               id: "custom",
-              label: "⭐ Mes Créations",
+              label: "⭐ My Creations",
               count: customStickers.length
             });
           }
@@ -145,7 +145,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
     { id: "pro", label: "💼 Professional", icon: Briefcase },
     { id: "tech", label: "🚀 Tech & Hacker", icon: Cpu },
     { id: "reactions", label: "😂 Reactions", icon: Smile },
-    { id: "plumes", label: "🪶 Plumes & Magic", icon: Feather },
+    { id: "plumes", label: "🪶 Feathers & Magic", icon: Feather },
     { id: "vibe", label: "☕ Vibes & Chill", icon: Coffee }
   ];
 
@@ -199,7 +199,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
               }`}
             >
               <Feather className="w-3.5 h-3.5 text-cyan-300" />
-              <span>Stickers Animés</span>
+              <span>Animated Stickers</span>
               <span className="px-1.5 py-0.2 bg-cyan-400/20 text-cyan-300 text-[10px] rounded-full border border-cyan-400/40">
                 HD
               </span>
@@ -214,7 +214,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              <span>Créer un Sticker</span>
+              <span>Create Sticker</span>
               <span className="px-1.5 py-0.2 bg-amber-400/20 text-amber-300 text-[9px] font-black rounded-full border border-amber-400/40">
                 PRO
               </span>
@@ -263,7 +263,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                 <Search className="w-4 h-4 text-blue-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Rechercher des stickers animés (ex: plume, or, paon, phénix, 3d, cyber, kawaii)..."
+                  placeholder="Search animated stickers (e.g. feather, gold, peacock, phoenix, 3d, cyber, kawaii)..."
                   value={stickerQuery}
                   onChange={(e) => setStickerQuery(e.target.value)}
                   className="w-full bg-[#040817] border border-blue-900/60 rounded-2xl py-2.5 pl-10 pr-10 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all shadow-inner"
@@ -285,9 +285,9 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                     <Palette className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="font-bold text-white block">Studio Créateur de Stickers</span>
+                    <span className="font-bold text-white block">Sticker Maker Studio</span>
                     <span className="text-[11px] text-pink-200/70">
-                      Importez vos propres photos de galerie, découpez en plume/cercle/étoile et animez !
+                      Upload your gallery photos, crop into feather/circle/star shapes and animate!
                     </span>
                   </div>
                 </div>
@@ -296,7 +296,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                   className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-pink-500/20 flex items-center gap-1.5 shrink-0 transition-all hover:scale-105 active:scale-95"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Créer</span>
+                  <span>Create</span>
                 </button>
               </div>
 
@@ -327,14 +327,14 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                   <div className="flex items-center gap-2 text-cyan-300">
                     <Feather className="w-5 h-5 text-cyan-400 animate-pulse" />
                     <div>
-                      <span className="font-bold text-white block">Collection Plumes Royales Animées</span>
+                      <span className="font-bold text-white block">Royal Animated Feathers Collection</span>
                       <span className="text-[11px] text-cyan-200/80">
-                        Plumes magiques avec flottement doux, lueur dorée et étincelles
+                        Magic feathers with smooth floating, golden glow, and sparkling particle trails
                       </span>
                     </div>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 font-black text-[10px] border border-cyan-400/40">
-                    ANIMÉES HD
+                    ANIMATED HD
                   </span>
                 </div>
               )}
@@ -343,22 +343,22 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
               {loadingStickers ? (
                 <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                   <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs">Chargement des stickers animés...</p>
+                  <p className="text-xs">Loading animated stickers...</p>
                 </div>
               ) : stickerResults.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-xs">
                   {stickerCategory === "custom" ? (
                     <div className="space-y-3">
-                      <p>Vous n'avez pas encore créé de stickers personnalisés.</p>
+                      <p>You haven't created any custom stickers yet.</p>
                       <button
                         onClick={() => setActiveTab("maker")}
                         className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-xs"
                       >
-                        Créer mon Premier Sticker
+                        Create My First Sticker
                       </button>
                     </div>
                   ) : (
-                    <p>Aucun sticker trouvé pour "{stickerQuery}". Essayez "plume" ou "or" !</p>
+                    <p>No stickers found for "{stickerQuery}". Try searching for "feather" or "gold"!</p>
                   )}
                 </div>
               ) : (
@@ -406,11 +406,11 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                           </p>
                           <div className="flex items-center justify-center gap-1 mt-0.5">
                             <span className="text-[9px] text-slate-400 capitalize">
-                              {sticker.category === "plumes" ? "🪶 Plume" : sticker.category}
+                              {sticker.category === "plumes" ? "🪶 Feather" : sticker.category}
                             </span>
                             {sticker.animationStyle && (
                               <span className="text-[8px] px-1 rounded bg-blue-950 text-cyan-300 border border-blue-800/40">
-                                ✨ Animé
+                                ✨ Animated
                               </span>
                             )}
                           </div>
@@ -421,7 +421,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                           <div
                             onClick={(e) => handleDeleteCustomSticker(sticker.id, e)}
                             className="absolute top-1.5 right-1.5 p-1 rounded-md bg-rose-950/80 text-rose-300 opacity-0 group-hover:opacity-100 hover:bg-rose-900 transition-opacity"
-                            title="Supprimer"
+                            title="Delete"
                           >
                             <X className="w-3 h-3" />
                           </div>
@@ -442,7 +442,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                 <Search className="w-4 h-4 text-blue-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Rechercher des milliers de GIFs pros et tendances..."
+                  placeholder="Search thousands of trending and professional GIFs..."
                   value={gifQuery}
                   onChange={(e) => setGifQuery(e.target.value)}
                   className="w-full bg-[#040817] border border-blue-900/60 rounded-2xl py-2.5 pl-10 pr-10 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-inner"
@@ -483,11 +483,11 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
               {loadingGifs ? (
                 <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                   <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs">Chargement des GIFs...</p>
+                  <p className="text-xs">Loading GIFs...</p>
                 </div>
               ) : gifResults.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-xs">
-                  <p>Aucun GIF trouvé pour "{gifQuery}". Essayez un autre terme !</p>
+                  <p>No GIFs found for "{gifQuery}". Try another search!</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[460px] overflow-y-auto pr-1">
@@ -512,7 +512,7 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
                         </span>
                       </div>
                       <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[9px] font-mono text-cyan-300 border border-cyan-400/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        ENVOYER
+                        SEND
                       </div>
                     </button>
                   ))}
@@ -527,10 +527,10 @@ export const GifStickerModal: React.FC<GifStickerModalProps> = ({
         <div className="p-3 bg-[#040817] border-t border-blue-950/80 flex items-center justify-between text-[11px] text-slate-400 px-5">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Cliquez sur un sticker ou GIF pour l'envoyer directement dans la discussion.</span>
+            <span>Click any sticker or GIF to send directly in chat.</span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
-            Touche ÉCHAP pour fermer
+            Press ESC to close
           </span>
         </div>
 

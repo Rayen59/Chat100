@@ -48,7 +48,12 @@ import {
   Feather,
   Zap,
   Camera,
-  PlusCircle
+  PlusCircle,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Maximize2,
+  CheckCircle
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
@@ -144,6 +149,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [unreadBelowCount, setUnreadBelowCount] = useState(0);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+
+  // Photo / Media Lightbox Viewer State
+  const [viewingPhoto, setViewingPhoto] = useState<{
+    url: string;
+    caption?: string;
+    senderName?: string;
+    timestamp?: number;
+  } | null>(null);
+  const [photoZoom, setPhotoZoom] = useState<number>(1);
+  const [photoRotation, setPhotoRotation] = useState<number>(0);
+  const [savedPhotoToast, setSavedPhotoToast] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -584,6 +600,62 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     }
   };
 
+  // Save / Download Photo to Device Gallery
+  const handleSavePhotoToGallery = async (photoUrl: string, customName?: string) => {
+    try {
+      const fileName = customName ? `Plume_${customName.replace(/[^a-zA-Z0-9]/g, "_")}.jpg` : `Plume_Photo_${Date.now()}.jpg`;
+
+      // If it's a data URL or blob URL, download directly
+      if (photoUrl.startsWith("data:") || photoUrl.startsWith("blob:")) {
+        const link = document.createElement("a");
+        link.href = photoUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Fetch to blob for external cross-origin images
+        const res = await fetch(photoUrl);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }
+
+      setSavedPhotoToast(true);
+      setTimeout(() => setSavedPhotoToast(false), 2500);
+    } catch (err) {
+      // Fallback
+      const link = document.createElement("a");
+      link.href = photoUrl;
+      link.download = `Plume_Photo_${Date.now()}.jpg`;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setSavedPhotoToast(true);
+      setTimeout(() => setSavedPhotoToast(false), 2500);
+    }
+  };
+
+  // Close lightbox on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && viewingPhoto) {
+        setViewingPhoto(null);
+        setPhotoZoom(1);
+        setPhotoRotation(0);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewingPhoto]);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#030612] relative overflow-hidden select-none">
       {/* Dynamic Ambient Theme Mesh Glow */}
@@ -603,7 +675,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             <button
               onClick={onBackMobile}
               className="p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-blue-900/40 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
-              title="Retour aux discussions"
+              title="Back to chats"
             >
               <ArrowLeft className="w-5 h-5 text-blue-400" />
             </button>
@@ -1004,13 +1076,38 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
                       {/* IMAGE CONTENT */}
                       {msg.type === "image" && msg.mediaUrl && (
-                        <div className="rounded-xl overflow-hidden my-1 bg-black/20">
+                        <div
+                          onClick={() => {
+                            setViewingPhoto({
+                              url: msg.mediaUrl!,
+                              caption: msg.text,
+                              senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "Photo")),
+                              timestamp: msg.timestamp
+                            });
+                            setPhotoZoom(1);
+                            setPhotoRotation(0);
+                          }}
+                          className="rounded-2xl overflow-hidden my-1 bg-black/30 relative group/img cursor-pointer transition-all hover:ring-2 hover:ring-cyan-400/50 shadow-md"
+                          title="Click to view full screen and save photo to gallery"
+                        >
                           <img
                             src={msg.mediaUrl}
                             alt="Attached"
-                            className="max-h-64 object-cover w-full hover:scale-105 transition-transform"
+                            className="max-h-72 object-cover w-full group-hover/img:scale-105 transition-transform duration-300"
                           />
-                          {msg.text && <p className="mt-1 text-xs">{msg.text}</p>}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col justify-between p-2.5">
+                            <div className="flex justify-end">
+                              <span className="p-1.5 rounded-full bg-black/60 backdrop-blur-md text-white shadow-md">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-3 py-1 rounded-full bg-black/75 backdrop-blur-md text-slate-100 text-xs font-bold flex items-center gap-1.5 shadow-lg border border-white/10">
+                                <Download className="w-3.5 h-3.5 text-cyan-400" /> Save / Full Screen
+                              </span>
+                            </div>
+                          </div>
+                          {msg.text && <p className="mt-1 text-xs px-2 py-1">{msg.text}</p>}
                         </div>
                       )}
 
@@ -1068,14 +1165,46 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
                       {/* GIF CONTENT */}
                       {msg.type === "gif" && msg.mediaUrl && (
-                        <div className="rounded-xl overflow-hidden my-1 bg-black/20">
-                          <img src={msg.mediaUrl} alt="GIF" className="max-h-56 w-full object-cover" />
+                        <div
+                          onClick={() => {
+                            setViewingPhoto({
+                              url: msg.mediaUrl!,
+                              caption: msg.text || "Animated GIF",
+                              senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "GIF")),
+                              timestamp: msg.timestamp
+                            });
+                            setPhotoZoom(1);
+                            setPhotoRotation(0);
+                          }}
+                          className="rounded-xl overflow-hidden my-1 bg-black/20 relative group/gif cursor-pointer hover:ring-2 hover:ring-cyan-400/40"
+                          title="Click to enlarge and save GIF"
+                        >
+                          <img src={msg.mediaUrl} alt="GIF" className="max-h-56 w-full object-cover group-hover/gif:scale-105 transition-transform" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/gif:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="p-1.5 px-3 rounded-full bg-black/75 text-white backdrop-blur-md text-xs font-bold flex items-center gap-1 shadow-lg border border-white/10">
+                              <Maximize2 className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Enlarge / Save</span>
+                            </span>
+                          </div>
                         </div>
                       )}
 
-                      {/* STICKER CONTENT (Spécial Plumes & Stickers Animés) */}
+                      {/* STICKER CONTENT (Animated Feathers & Stickers) */}
                       {msg.type === "sticker" && msg.mediaUrl && (
-                        <div className="my-1.5 flex flex-col items-center group/stk relative py-1">
+                        <div
+                          onClick={() => {
+                            setViewingPhoto({
+                              url: msg.mediaUrl!,
+                              caption: msg.text || "Animated Sticker",
+                              senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "Sticker")),
+                              timestamp: msg.timestamp
+                            });
+                            setPhotoZoom(1);
+                            setPhotoRotation(0);
+                          }}
+                          className="my-1.5 flex flex-col items-center group/stk relative py-1 cursor-pointer"
+                          title="Click to view and save sticker to gallery"
+                        >
                           {(() => {
                             const titleLower = (msg.text || "").toLowerCase();
                             const isFeather = titleLower.includes("plume") || titleLower.includes("feather");
@@ -1097,7 +1226,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                               : "animate-feather-float";
 
                             return (
-                              <div className="relative rounded-3xl p-3 bg-gradient-to-b from-white/10 via-black/20 to-black/40 backdrop-blur-md border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:scale-105 transition-all">
+                              <div className="relative rounded-3xl p-3 bg-gradient-to-b from-white/10 via-black/20 to-black/40 backdrop-blur-md border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group-hover/stk:scale-105 transition-all">
                                 <div className={animClass}>
                                   <img
                                     src={msg.mediaUrl}
@@ -1108,19 +1237,19 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                                 </div>
                                 {isFeather && (
                                   <span className="absolute -top-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-[#030612] text-[10px] font-black shadow-lg flex items-center gap-1 border border-white/80 ring-2 ring-cyan-400/40">
-                                    <Feather className="w-3 h-3 text-[#030612]" /> Plume Animée
+                                    <Feather className="w-3 h-3 text-[#030612]" /> Animated Feather
                                   </span>
                                 )}
                                 {!isFeather && isGold && (
                                   <span className="absolute -top-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 text-black text-[10px] font-black shadow-lg flex items-center gap-1 border border-white/80 ring-2 ring-amber-400/40">
-                                    <Sparkles className="w-3 h-3 text-black" /> Or Royal
+                                    <Sparkles className="w-3 h-3 text-black" /> Royal Gold
                                   </span>
                                 )}
                               </div>
                             );
                           })()}
                           {msg.text && (
-                            <span className="mt-2 text-[11px] font-bold text-slate-200 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 shadow-sm">
+                            <span className="mt-2 text-[11px] font-bold text-slate-200 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 shadow-sm group-hover/stk:border-cyan-400/50">
                               {msg.text}
                             </span>
                           )}
@@ -1394,8 +1523,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 >
                   <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
                   <div className="flex flex-col">
-                    <span>Studio Créateur Stickers</span>
-                    <span className="text-[10px] text-pink-200/60 font-normal">Importer & découper photo</span>
+                    <span>Sticker Maker Studio</span>
+                    <span className="text-[10px] text-pink-200/60 font-normal">Upload & custom crop photo</span>
                   </div>
                 </button>
 
@@ -1409,8 +1538,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 >
                   <Feather className="w-4 h-4 text-cyan-400" />
                   <div className="flex flex-col">
-                    <span>Plumes & Stickers Animés</span>
-                    <span className="text-[10px] text-cyan-200/60 font-normal">Collection HD & effets</span>
+                    <span>Feathers & Animated Stickers</span>
+                    <span className="text-[10px] text-cyan-200/60 font-normal">HD collection & effects</span>
                   </div>
                 </button>
 
@@ -1424,8 +1553,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 >
                   <Zap className="w-4 h-4 text-cyan-400" />
                   <div className="flex flex-col">
-                    <span>GIFs Tendances</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Recherche illimitée</span>
+                    <span>Trending GIFs</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Unlimited GIF search</span>
                   </div>
                 </button>
 
@@ -1439,8 +1568,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   >
                     <BarChart2 className="w-4 h-4 text-cyan-400" />
                     <div className="flex flex-col">
-                      <span>Créer un Sondage & Vote</span>
-                      <span className="text-[10px] text-cyan-200/60 font-normal">Sondage interactif pour le groupe</span>
+                      <span>Create Poll & Vote</span>
+                      <span className="text-[10px] text-cyan-200/60 font-normal">Interactive group poll</span>
                     </div>
                   </button>
                 )}
@@ -1454,7 +1583,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 >
                   <Paperclip className="w-4 h-4 text-slate-400" />
                   <div className="flex flex-col">
-                    <span>Document & Fichier</span>
+                    <span>Document & File</span>
                     <span className="text-[10px] text-slate-400 font-normal">PDF, audio, archive</span>
                   </div>
                 </button>
@@ -1483,13 +1612,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             <div className="max-w-4xl mx-auto w-full bg-rose-500/15 border border-rose-500/30 rounded-full px-4 py-2 flex items-center justify-between text-rose-300 text-xs">
               <div className="flex items-center gap-2.5">
                 <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-                <span className="font-bold tracking-wide">Enregistrement vocal en cours... 0:0{recordingSeconds}s</span>
+                <span className="font-bold tracking-wide">Recording voice note... 0:0{recordingSeconds}s</span>
               </div>
               <button
                 onClick={stopRecording}
                 className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-full shadow-lg transition-all active:scale-95"
               >
-                Envoyer la Voix
+                Send Voice
               </button>
             </div>
           ) : (
@@ -1499,7 +1628,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               {/* LEFT: BLUE/PURPLE CAMERA BUTTON */}
               <button
                 onClick={() => cameraInputRef.current?.click()}
-                title="Appareil Photo / Prendre une photo"
+                title="Camera / Take a photo"
                 className="w-10 h-10 rounded-full bg-[#5b52f9] hover:bg-[#4f46e5] flex items-center justify-center shrink-0 text-white shadow-md transition-transform active:scale-90 cursor-pointer"
               >
                 <Camera className="w-5 h-5 text-white" />
@@ -1510,7 +1639,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 <textarea
                   ref={textareaRef}
                   rows={1}
-                  placeholder="Votre message..."
+                  placeholder="Type a message..."
                   value={inputText}
                   onChange={(e) => {
                     setInputText(e.target.value);
@@ -1542,7 +1671,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                           }
                         : undefined
                     }
-                    title="Envoyer le message"
+                    title="Send message"
                     className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white flex items-center justify-center shrink-0 shadow-md transition-transform active:scale-90 cursor-pointer"
                   >
                     <Send className="w-4 h-4" />
@@ -1550,7 +1679,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 ) : (
                   <button
                     onClick={startRecording}
-                    title="Enregistrer un message vocal"
+                    title="Record voice message"
                     className="w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                   >
                     <Mic className="w-5 h-5" />
@@ -1560,7 +1689,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 {/* 2. GALLERY / IMAGE PICKER */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  title="Envoyer une image de la galerie"
+                  title="Send image from gallery"
                   className="w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                 >
                   <ImageIcon className="w-5 h-5" />
@@ -1572,7 +1701,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     setGifStickerTab("stickers");
                     setShowGifStickerModal(true);
                   }}
-                  title="Stickers Animés & Plumes Magiques"
+                  title="Animated Stickers & Feathers"
                   className="w-9 h-9 rounded-full text-slate-300 hover:text-cyan-300 hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                 >
                   <Smile className="w-5 h-5" />
@@ -1581,7 +1710,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 {/* 4. PLUS BUTTON (EXTRA OPTIONS) */}
                 <button
                   onClick={() => setShowPlusMenu((prev) => !prev)}
-                  title="Plus d'options (Studio Stickers, Sondages, Fichiers)"
+                  title="More options (Stickers Studio, Polls, Files)"
                   className={`w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                     showPlusMenu ? "rotate-45 text-cyan-400 bg-white/10" : ""
                   }`}
@@ -2077,6 +2206,175 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* FULL-SCREEN PHOTO & MEDIA VIEWER (LIGHTBOX) */}
+      {viewingPhoto && (
+        <div className="fixed inset-0 z-50 bg-[#02040a]/95 backdrop-blur-2xl flex flex-col justify-between animate-in fade-in duration-200 select-none">
+          {/* Top Bar Header */}
+          <div className="p-3 sm:p-4 px-4 sm:px-6 bg-gradient-to-b from-black/80 to-transparent flex items-center justify-between z-20 shrink-0">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  setViewingPhoto(null);
+                  setPhotoZoom(1);
+                  setPhotoRotation(0);
+                }}
+                className="p-2 sm:px-3 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
+                title="Exit / Close (Esc)"
+              >
+                <ArrowLeft className="w-5 h-5 text-cyan-400" />
+                <span className="text-xs font-bold hidden sm:inline">Back to chat</span>
+              </button>
+
+              <div className="flex flex-col">
+                <span className="text-white text-sm font-bold flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-cyan-400" />
+                  {viewingPhoto.senderName || "Chat Media"}
+                </span>
+                {viewingPhoto.timestamp && (
+                  <span className="text-slate-400 text-[11px]">
+                    {new Date(viewingPhoto.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions in Header */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Zoom Out */}
+              <button
+                onClick={() => setPhotoZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                title="Zoom out (-)"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+
+              {/* Reset Zoom */}
+              <button
+                onClick={() => {
+                  setPhotoZoom(1);
+                  setPhotoRotation(0);
+                }}
+                className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold font-mono transition-colors"
+                title="Reset zoom (100%)"
+              >
+                {Math.round(photoZoom * 100)}%
+              </button>
+
+              {/* Zoom In */}
+              <button
+                onClick={() => setPhotoZoom((z) => Math.min(3.5, +(z + 0.25).toFixed(2)))}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                title="Zoom in (+)"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              {/* Rotate */}
+              <button
+                onClick={() => setPhotoRotation((r) => (r + 90) % 360)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                title="Rotate 90°"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
+
+              {/* Primary Save Button in Header */}
+              <button
+                onClick={() => handleSavePhotoToGallery(viewingPhoto.url, viewingPhoto.caption)}
+                className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-blue-600/40 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                title="Save this photo to your gallery"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Save</span>
+              </button>
+
+              {/* Exit / Close */}
+              <button
+                onClick={() => {
+                  setViewingPhoto(null);
+                  setPhotoZoom(1);
+                  setPhotoRotation(0);
+                }}
+                className="p-2 rounded-full bg-white/10 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer"
+                title="Close photo viewer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Central Canvas Viewport */}
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewingPhoto(null);
+                setPhotoZoom(1);
+                setPhotoRotation(0);
+              }
+            }}
+            className="flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden relative cursor-zoom-out"
+          >
+            <div
+              className="relative max-w-full max-h-full flex items-center justify-center cursor-default"
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={() => setPhotoZoom((z) => (z > 1 ? 1 : 2))}
+            >
+              <img
+                src={viewingPhoto.url}
+                alt="Photo preview"
+                style={{
+                  transform: `scale(${photoZoom}) rotate(${photoRotation}deg)`,
+                  transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+                }}
+                className="max-w-[92vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
+              />
+            </div>
+          </div>
+
+          {/* Bottom Bar Footer with Caption & Action Controls */}
+          <div className="p-3 sm:p-5 bg-gradient-to-t from-black/90 via-black/70 to-transparent flex flex-col items-center gap-3 z-20 shrink-0">
+            {viewingPhoto.caption && (
+              <p className="text-slate-200 text-xs sm:text-sm font-medium bg-black/60 backdrop-blur-md px-4 py-2 rounded-2xl max-w-xl text-center border border-white/10 shadow-lg">
+                {viewingPhoto.caption}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              {/* Save / Download to Gallery Main Button */}
+              <button
+                onClick={() => handleSavePhotoToGallery(viewingPhoto.url, viewingPhoto.caption)}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer ring-2 ring-cyan-400/30"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save to gallery</span>
+              </button>
+
+              {/* Exit Button */}
+              <button
+                onClick={() => {
+                  setViewingPhoto(null);
+                  setPhotoZoom(1);
+                  setPhotoRotation(0);
+                }}
+                className="px-4 py-2.5 rounded-full bg-white/15 hover:bg-white/25 text-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                <span>Exit</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Photo Toast Alert */}
+      {savedPhotoToast && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full bg-emerald-600 text-white text-xs sm:text-sm font-extrabold shadow-2xl border border-emerald-300 flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle className="w-4 h-4 text-emerald-200" />
+          <span>Photo successfully saved to your gallery!</span>
         </div>
       )}
     </div>
