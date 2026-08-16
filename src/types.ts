@@ -78,6 +78,7 @@ export interface Group {
   creatorId: string;
   adminIds: string[];
   memberIds: string[];
+  removedMemberIds?: string[]; // Banned/removed members who cannot rejoin via invite code unless re-added by an admin
   restrictedMemberIds?: string[]; // Members restricted to read-only mode
   announcementMode?: boolean; // When true, only admins can post
   onlyAdminMessagesVisible?: boolean; // When true, members only see admin & system messages

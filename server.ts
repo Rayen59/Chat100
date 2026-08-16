@@ -812,6 +812,13 @@ app.post("/api/groups/join", (req: Request, res: Response) => {
     return res.status(404).json({ error: "Invalid group invite code." });
   }
 
+  // Check if the user was removed/banned by an administrator
+  if (group.removedMemberIds?.includes(userId)) {
+    return res.status(403).json({
+      error: "You were previously removed from this group by an admin. You cannot rejoin using an invite code or password unless an administrator re-adds you directly."
+    });
+  }
+
   if (group.isPrivate && group.password && group.password !== password) {
     return res.status(401).json({ error: "Incorrect group password." });
   }
@@ -833,6 +840,41 @@ app.post("/api/groups/join", (req: Request, res: Response) => {
 
   const conv = store.conversations.find((c) => c.groupId === group.id);
   return res.json({ group, conversation: conv });
+});
+
+// 14b. Permanently Delete Group (Admin & Creator Only)
+app.post("/api/groups/delete", (req: Request, res: Response) => {
+  const { groupId, requesterId } = req.body;
+  const group = store.groups.find((g) => g.id === groupId);
+  if (!group) return res.status(404).json({ error: "Group not found." });
+
+  const isCreator = group.creatorId === requesterId;
+  const isAdmin = group.adminIds.includes(requesterId);
+
+  if (!isAdmin && !isCreator) {
+    return res.status(403).json({ error: "Only group administrators or the owner can delete this group permanently." });
+  }
+
+  const conv = store.conversations.find((c) => c.groupId === group.id);
+  const conversationId = conv?.id;
+
+  // 1. Delete associated messages
+  if (conversationId) {
+    store.messages = store.messages.filter((m) => m.conversationId !== conversationId);
+    store.conversations = store.conversations.filter((c) => c.id !== conversationId);
+  }
+
+  // 2. Delete group
+  store.groups = store.groups.filter((g) => g.id !== groupId);
+  saveStore();
+
+  broadcastEvent("group_deleted", {
+    groupId,
+    conversationId,
+    deletedBy: requesterId
+  });
+
+  return res.json({ success: true, groupId, conversationId });
 });
 
 // 15. Manage Group Members, Badges, Restrictions & Announcement Mode
@@ -878,8 +920,13 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
     broadcastEvent("new_message", sysMsg);
   };
 
+  if (!group.removedMemberIds) group.removedMemberIds = [];
+
   if (action === "add") {
     if (!group.memberJoinedAt) group.memberJoinedAt = {};
+    // Un-blacklist / clear from removedMemberIds since an admin explicitly added them
+    group.removedMemberIds = group.removedMemberIds.filter((id) => id !== targetUserId);
+
     if (!group.memberIds.includes(targetUserId)) {
       group.memberIds.push(targetUserId);
       group.memberJoinedAt[targetUserId] = new Date().toISOString();
@@ -888,6 +935,27 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
       }
       const targetUser = store.users.find((u) => u.id === targetUserId);
       addSystemMessage(`${targetUser?.username || "New member"} was added to the group by ${requesterName}.`);
+    }
+  } else if (action === "add_bulk" && Array.isArray(targetUserIds)) {
+    if (!group.memberJoinedAt) group.memberJoinedAt = {};
+    const addedNames: string[] = [];
+
+    targetUserIds.forEach((uid) => {
+      // Clear from removedMemberIds
+      group.removedMemberIds = group.removedMemberIds?.filter((id) => id !== uid) || [];
+      if (!group.memberIds.includes(uid)) {
+        group.memberIds.push(uid);
+        group.memberJoinedAt![uid] = new Date().toISOString();
+        if (conv && !conv.participants.includes(uid)) {
+          conv.participants.push(uid);
+        }
+        const u = store.users.find((user) => user.id === uid);
+        if (u) addedNames.push(u.username);
+      }
+    });
+
+    if (addedNames.length > 0) {
+      addSystemMessage(`${addedNames.join(", ")} were added to the group by ${requesterName}.`);
     }
   } else if (action === "update_avatar") {
     // 5 changes per 48 hours (2 days) rule
@@ -925,6 +993,11 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
     const targetUser = store.users.find((u) => u.id === targetUserId);
     const targetName = targetUser?.username || "Member";
 
+    // Add to removedMemberIds so they cannot rejoin with an invite code
+    if (!group.removedMemberIds.includes(targetUserId)) {
+      group.removedMemberIds.push(targetUserId);
+    }
+
     group.memberIds = group.memberIds.filter((id) => id !== targetUserId);
     group.adminIds = group.adminIds.filter((id) => id !== targetUserId);
     if (group.restrictedMemberIds) {
@@ -947,6 +1020,12 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
     validTargets.forEach((id) => {
       const u = store.users.find((user) => user.id === id);
       if (u) targetNames.push(u.username);
+
+      // Add to removedMemberIds
+      if (!group.removedMemberIds!.includes(id)) {
+        group.removedMemberIds!.push(id);
+      }
+
       group.memberIds = group.memberIds.filter((mId) => mId !== id);
       group.adminIds = group.adminIds.filter((aId) => aId !== id);
       if (group.restrictedMemberIds) {

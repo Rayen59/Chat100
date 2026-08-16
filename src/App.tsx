@@ -214,6 +214,29 @@ export default function App() {
       setGroups((prev) => prev.map((g) => (g.id === updatedGroup.id ? updatedGroup : g)));
     });
 
+    // Instant update when a group is permanently deleted
+    eventSource.addEventListener("group_deleted", (e: any) => {
+      const data: { groupId: string; conversationId?: string; deletedBy: string } = JSON.parse(e.data);
+      setGroups((prev) => prev.filter((g) => g.id !== data.groupId));
+      if (data.conversationId) {
+        setConversations((prev) => prev.filter((c) => c.id !== data.conversationId));
+        if (activeConversationId === data.conversationId) {
+          setActiveConversationId(null);
+          setMessages([]);
+        }
+      }
+      setGroupModalState((prev) => (prev.group?.id === data.groupId ? { open: false, mode: "create" } : prev));
+      const notif: AppNotification = {
+        id: Math.random().toString(),
+        type: "system",
+        title: "Group Deleted",
+        senderName: "Wavegram System",
+        text: "A group you were in has been permanently deleted by an administrator.",
+        createdAt: new Date().toISOString()
+      };
+      setNotifications((prev) => [...prev, notif]);
+    });
+
     // Instant update when a member or group of members is removed
     eventSource.addEventListener("member_removed", (e: any) => {
       const data: { groupId: string; conversationId?: string; removedUserIds: string[] } = JSON.parse(e.data);
@@ -536,6 +559,7 @@ export default function App() {
   const handleManageMembers = async (
     action:
       | "add"
+      | "add_bulk"
       | "remove"
       | "toggle_admin"
       | "add_badge"
@@ -587,6 +611,34 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Permanently Delete Group (Admin / Creator Only)
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch("/api/groups/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId, requesterId: currentUser.id })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete group.");
+        return;
+      }
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      if (data.conversationId) {
+        setConversations((prev) => prev.filter((c) => c.id !== data.conversationId));
+        if (activeConversationId === data.conversationId) {
+          setActiveConversationId(null);
+          setMessages([]);
+        }
+      }
+      setGroupModalState({ open: false, mode: "create" });
+    } catch (err) {
+      console.error("Delete group error:", err);
     }
   };
 
@@ -774,10 +826,12 @@ export default function App() {
           currentUser={currentUser}
           group={activeGroup}
           allUsers={allUsers}
+          conversations={conversations}
           onClose={() => setGroupModalState({ open: false, mode: "create" })}
           onCreateGroup={handleCreateGroup}
           onJoinGroup={handleJoinGroup}
           onManageMembers={handleManageMembers}
+          onDeleteGroup={handleDeleteGroup}
           onBlockUser={handleBlockUser}
         />
       )}

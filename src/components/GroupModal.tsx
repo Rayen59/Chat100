@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { User, Group } from "../types";
+import { User, Group, Conversation } from "../types";
 import {
   X,
   Users,
@@ -26,7 +26,12 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
-  Clock
+  Clock,
+  UserPlus,
+  MessageSquare,
+  Search,
+  AlertTriangle,
+  Ban
 } from "lucide-react";
 
 interface GroupModalProps {
@@ -34,6 +39,7 @@ interface GroupModalProps {
   currentUser: User;
   group?: Group;
   allUsers: User[];
+  conversations?: Conversation[];
   onClose: () => void;
   onCreateGroup: (payload: {
     name: string;
@@ -48,6 +54,7 @@ interface GroupModalProps {
   onManageMembers: (
     action:
       | "add"
+      | "add_bulk"
       | "remove"
       | "toggle_admin"
       | "add_badge"
@@ -63,6 +70,7 @@ interface GroupModalProps {
     targetUserIds?: string[],
     avatar?: string
   ) => void;
+  onDeleteGroup?: (groupId: string) => void;
   onBlockUser?: (targetUserId: string) => void;
 }
 
@@ -89,10 +97,12 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   currentUser,
   group,
   allUsers,
+  conversations = [],
   onClose,
   onCreateGroup,
   onJoinGroup,
   onManageMembers,
+  onDeleteGroup,
   onBlockUser
 }) => {
   // Create mode state
@@ -115,7 +125,14 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
   const [showBulkRemoveConfirm, setShowBulkRemoveConfirm] = useState(false);
+  const [showDeleteGroupConfirm, setShowDeleteGroupConfirm] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+
+  // Add Members Modal State
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+  const [addMembersTab, setAddMembersTab] = useState<"chats" | "all">("chats");
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [selectedNewMemberIds, setSelectedNewMemberIds] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const createFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -131,6 +148,31 @@ export const GroupModal: React.FC<GroupModalProps> = ({
   const photoChangesUsed = recentPhotoChanges.length;
   const photoChangesRemaining = Math.max(0, 5 - photoChangesUsed);
   const isPhotoChangeLimitReached = photoChangesUsed >= 5;
+
+  // Filter contacts that the current admin has chatted with (DM conversations)
+  const directChatUserIds = conversations
+    .filter((c) => c.type === "dm" && c.participants.includes(currentUser.id))
+    .map((c) => c.participants.find((p) => p !== currentUser.id))
+    .filter((id): id is string => !!id && id !== currentUser.id);
+
+  const directChatUsers = allUsers.filter(
+    (u) =>
+      directChatUserIds.includes(u.id) &&
+      u.id !== currentUser.id &&
+      !group?.memberIds.includes(u.id)
+  );
+
+  const allNonMembers = allUsers.filter(
+    (u) => u.id !== currentUser.id && !group?.memberIds.includes(u.id)
+  );
+
+  const displayedAddCandidateUsers = (
+    addMembersTab === "chats" ? directChatUsers : allNonMembers
+  ).filter(
+    (u) =>
+      u.username.toLowerCase().includes(addMemberSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(addMemberSearch.toLowerCase())
+  );
 
   const handleCopyInvite = () => {
     if (!group) return;
@@ -196,13 +238,27 @@ export const GroupModal: React.FC<GroupModalProps> = ({
     e.target.value = "";
   };
 
+  const handleToggleSelectNewMember = (userId: string) => {
+    if (selectedNewMemberIds.includes(userId)) {
+      setSelectedNewMemberIds(selectedNewMemberIds.filter((id) => id !== userId));
+    } else {
+      setSelectedNewMemberIds([...selectedNewMemberIds, userId]);
+    }
+  };
+
+  const handleConfirmAddMembers = () => {
+    if (selectedNewMemberIds.length === 0) return;
+    onManageMembers("add_bulk", "", undefined, undefined, selectedNewMemberIds);
+    setSelectedNewMemberIds([]);
+    setShowAddMembersModal(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 select-none">
       <div className="w-full max-w-lg bg-[#09112a] border border-blue-500/25 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-900/50">
-        
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-blue-900/40 transition-colors z-20"
         >
           <X className="w-5 h-5" />
         </button>
@@ -415,7 +471,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold">Join Group</h2>
-                <p className="text-xs text-slate-400">Enter invite code or link provided by creator</p>
+                <p className="text-xs text-slate-400">Enter invite code or password provided by an administrator</p>
               </div>
             </div>
 
@@ -448,6 +504,13 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   onChange={(e) => setJoinPasswordInput(e.target.value)}
                   className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              <div className="p-3 bg-blue-950/40 border border-blue-900/40 rounded-xl text-[11px] text-slate-400 flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <span>
+                  Note: If you were previously removed from this group by an admin, you cannot re-join with an invite code. Only an admin can directly re-add you.
+                </span>
               </div>
 
               <button
@@ -498,36 +561,24 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                       style={{ backgroundColor: group.themeColor || "#3b82f6" }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">{group.description || "Wavegram Community Group"}</p>
-
-                  {/* Photo Change Limit Indicator */}
+                  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{group.description || "No description."}</p>
+                  
+                  {/* Photo Rate Limiter Info for Admin */}
                   {isAdmin && (
-                    <div className="mt-2.5 flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-blue-950">
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <Clock className={`w-3.5 h-3.5 ${isPhotoChangeLimitReached ? "text-rose-400" : "text-blue-400"}`} />
-                        <span className={isPhotoChangeLimitReached ? "text-rose-400 font-bold" : "text-slate-300"}>
-                          Photo changes: <strong className="text-white">{photoChangesRemaining}/5 left</strong> (48h window)
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (isPhotoChangeLimitReached) {
-                            setPhotoError("Limit reached: Group photo can only be changed 5 times every 2 days.");
-                          } else {
-                            fileInputRef.current?.click();
-                          }
-                        }}
-                        disabled={isPhotoChangeLimitReached}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all ${
-                          isPhotoChangeLimitReached
-                            ? "bg-rose-950/40 text-rose-400 border border-rose-800/40 opacity-70 cursor-not-allowed"
-                            : "bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30"
-                        }`}
-                      >
-                        <Camera className="w-3 h-3" />
-                        <span>Upload Photo</span>
-                      </button>
+                    <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-slate-400 bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-900/40">
+                      <Clock className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span>
+                        Photo changes: <strong className={isPhotoChangeLimitReached ? "text-rose-400" : "text-emerald-400"}>{photoChangesUsed}/5</strong> in 48h
+                        {photoChangesRemaining > 0 ? ` (${photoChangesRemaining} left)` : " (Limit reached)"}
+                      </span>
                     </div>
+                  )}
+
+                  {photoError && (
+                    <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {photoError}
+                    </p>
                   )}
 
                   <input
@@ -539,84 +590,82 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   />
                 </div>
               </div>
-
-              {photoError && (
-                <div className="mt-3 p-2.5 bg-rose-950/60 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2 animate-fade-in">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>{photoError}</span>
-                </div>
-              )}
             </div>
 
-            {/* Invite Code Bar */}
-            <div className="p-3 bg-[#0c1636] border border-blue-900/50 rounded-2xl flex items-center justify-between">
+            {/* Invite Code & Share */}
+            <div className="p-3 bg-[#050a1b] border border-blue-900/50 rounded-2xl flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Group Invite Code</span>
-                <span className="font-mono text-sm font-bold text-blue-400">{group.inviteCode}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Invite Code</span>
+                <span className="text-sm font-mono font-bold text-blue-400">{group.inviteCode}</span>
               </div>
               <button
                 onClick={handleCopyInvite}
-                className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl text-xs font-semibold border border-blue-500/30 flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs font-semibold rounded-xl border border-blue-500/30 flex items-center gap-1.5 transition-colors"
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "Copied!" : "Copy Code"}</span>
               </button>
             </div>
 
-            {/* Admin Controls Panel */}
+            {/* Admin Controls: Theme Color, Announcement Mode & History Visibility */}
             {isAdmin && (
-              <div className="p-4 bg-[#0c1636] border border-blue-900/50 rounded-2xl space-y-4">
-                {/* Theme Color Live Switcher */}
+              <div className="space-y-4 p-4 bg-[#0c1636] border border-blue-900/40 rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-blue-400" />
+                  <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                    Admin Preferences & Customization
+                  </h3>
+                </div>
+
+                {/* Theme Selector for Admin */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs font-bold text-slate-200">Group Theme Color (Applies to all sent & received messages)</span>
-                    </div>
-                  </div>
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1.5">
+                    Group Color Theme (Applied across chat bubbles & highlights)
+                  </label>
                   <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                     {THEME_COLORS.map((c) => (
                       <button
                         key={c.hex}
-                        type="button"
                         onClick={() => onManageMembers("update_theme", "", undefined, c.hex)}
-                        title={`Apply ${c.name}`}
-                        className={`h-8 rounded-xl transition-all flex items-center justify-center relative ${
-                          (group.themeColor || "#3b82f6") === c.hex
+                        title={c.name}
+                        className={`h-8 rounded-xl transition-all flex items-center justify-center relative shadow ${
+                          group.themeColor === c.hex
                             ? "scale-110 ring-2 ring-white shadow-lg"
-                            : "opacity-70 hover:opacity-100 hover:scale-105"
+                            : "opacity-75 hover:opacity-100 hover:scale-105"
                         }`}
                         style={{ backgroundColor: c.hex }}
                       >
-                        {(group.themeColor || "#3b82f6") === c.hex && (
-                          <Check className="w-3.5 h-3.5 text-white drop-shadow" />
-                        )}
+                        {group.themeColor === c.hex && <Check className="w-3.5 h-3.5 text-white drop-shadow" />}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* History Visibility Toggle for New Members */}
-                <div className="flex items-center justify-between pt-3 border-t border-blue-950">
+                {/* Past Chat History Visibility Toggle */}
+                <div className="pt-2 border-t border-blue-900/40 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${group.historyVisibleToNewMembers !== false ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
-                      {group.historyVisibleToNewMembers !== false ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    <div className="p-1.5 rounded-lg bg-blue-950 text-blue-400">
+                      {group.historyVisibleToNewMembers !== false ? (
+                        <Eye className="w-4 h-4" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-amber-400" />
+                      )}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">Chat History for New Members</h4>
-                      <p className="text-[11px] text-slate-400">
+                      <span className="font-semibold text-xs text-slate-200">Past Chat History for New Members</span>
+                      <p className="text-[10px] text-slate-400">
                         {group.historyVisibleToNewMembers !== false
-                          ? "Visible: New members can view past messages before their join date."
-                          : "Hidden: New members only see messages sent after they join."}
+                          ? "New members can see past messages"
+                          : "Hidden (New members only see messages sent after joining)"}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => onManageMembers("toggle_history_visibility", "")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       group.historyVisibleToNewMembers !== false
-                        ? "bg-blue-900/60 text-blue-300 hover:bg-blue-900"
-                        : "bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-600/20"
+                        ? "bg-blue-600/30 text-blue-300 border border-blue-500/40"
+                        : "bg-amber-600/20 text-amber-300 border border-amber-500/40"
                     }`}
                   >
                     {group.historyVisibleToNewMembers !== false ? "Visible" : "Hidden"}
@@ -624,40 +673,53 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                 </div>
 
                 {/* Announcement Mode Toggle */}
-                <div className="flex items-center justify-between pt-3 border-t border-blue-950">
+                <div className="pt-2 border-t border-blue-900/40 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl ${group.announcementMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/40" : "bg-blue-950 text-slate-400"}`}>
+                    <div className="p-1.5 rounded-lg bg-blue-950 text-blue-400">
                       <Megaphone className="w-4 h-4" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">Announcement / Broadcast Mode</h4>
-                      <p className="text-[11px] text-slate-400">
-                        {group.announcementMode
-                          ? "Active: Only admins can send messages; regular members cannot broadcast."
-                          : "Inactive: All members can freely chat."}
-                      </p>
+                      <span className="font-semibold text-xs text-slate-200">Announcement Mode</span>
+                      <p className="text-[10px] text-slate-400">When enabled, only group administrators can send messages</p>
                     </div>
                   </div>
                   <button
                     onClick={() => onManageMembers("toggle_announcement_mode", "")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       group.announcementMode
-                        ? "bg-amber-500 text-black hover:bg-amber-400 shadow-md shadow-amber-500/20"
-                        : "bg-blue-900/60 text-slate-200 hover:bg-blue-900"
+                        ? "bg-amber-600/30 text-amber-300 border border-amber-500/40"
+                        : "bg-slate-800 text-slate-400"
                     }`}
                   >
-                    {group.announcementMode ? "Active" : "Enable"}
+                    {group.announcementMode ? "Enabled" : "Disabled"}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Members List Header & Bulk Selection Bar */}
+            {/* Members List Header, Add Members Button & Bulk Selection Bar */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Participants ({group.memberIds.length})
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    Participants ({group.memberIds.length})
+                  </h3>
+                  {/* Admin-only Add Members button */}
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setSelectedNewMemberIds([]);
+                        setAddMemberSearch("");
+                        setShowAddMembersModal(true);
+                      }}
+                      className="px-2.5 py-1 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-md shadow-blue-600/20 active:scale-95 transition-all"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Add Members</span>
+                    </button>
+                  )}
+                </div>
+
                 {isAdmin && (
                   <div className="flex items-center gap-2">
                     <button
@@ -680,7 +742,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                 )}
               </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-blue-900/40">
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-blue-900/40">
                 {group.memberIds.map((memberId) => {
                   const member = allUsers.find((u) => u.id === memberId);
                   const isMemberAdmin = group.adminIds.includes(memberId);
@@ -865,7 +927,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   <span>Remove {memberToRemove.name} from group?</span>
                 </div>
                 <p className="text-[11px] text-slate-300">
-                  This member will be removed from the group, lose access to messages, and an announcement will be posted in the chat.
+                  This member will be removed from the group, lose access to messages, and won't be able to re-join using the invite code unless an administrator re-adds them.
                 </p>
                 <div className="flex items-center justify-end gap-2">
                   <button
@@ -895,7 +957,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                   <span>Remove {selectedMemberIds.length} selected participant(s)?</span>
                 </div>
                 <p className="text-[11px] text-slate-300">
-                  All selected members will be removed, will not receive future messages, and an admin removal notice will be announced.
+                  All selected members will be removed, barred from rejoining with the invite code, and an admin removal notice will be announced.
                 </p>
                 <div className="flex items-center justify-end gap-2">
                   <button
@@ -913,6 +975,239 @@ export const GroupModal: React.FC<GroupModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Danger Zone: Permanently Delete Group (Admin / Owner Only) */}
+            {isAdmin && (
+              <div className="p-4 bg-rose-950/30 border border-rose-500/40 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-rose-950 text-rose-400 border border-rose-500/30">
+                      <Trash2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-rose-300">Delete Group Permanently</h4>
+                      <p className="text-[10px] text-slate-400">
+                        Wipe this group, chat history, and all media attachments for all members.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteGroupConfirm(true)}
+                    className="px-3 py-1.5 bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold rounded-xl border border-rose-500/40 transition-colors shadow-sm"
+                  >
+                    Delete Group
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Permanent Group Deletion Confirmation Dialog */}
+            {showDeleteGroupConfirm && (
+              <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+                <div className="w-full max-w-sm bg-[#09112a] border border-rose-500/60 rounded-3xl p-5 space-y-4 shadow-2xl text-slate-100">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 mx-auto">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <h3 className="font-bold text-base text-white">Permanently Delete Group?</h3>
+                    <p className="text-xs text-slate-300">
+                      Are you sure you want to permanently delete <strong className="text-rose-400">"{group.name}"</strong>?
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-2 bg-rose-950/40 p-2.5 rounded-xl border border-rose-900/40">
+                      ⚠️ This action is irreversible. The group and its conversation history will be permanently erased for everyone.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      onClick={() => setShowDeleteGroupConfirm(false)}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeleteGroupConfirm(false);
+                        onDeleteGroup?.(group.id);
+                      }}
+                      className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all"
+                    >
+                      Yes, Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ADMIN ADD MEMBERS MODAL */}
+        {showAddMembersModal && group && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+            <div className="w-full max-w-md bg-[#09112a] border border-blue-500/30 rounded-3xl p-5 space-y-4 shadow-2xl text-slate-100 max-h-[85vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-blue-900/50 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-white">Add Members to Group</h3>
+                    <p className="text-[10px] text-slate-400">Admin Member Admission Control</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAddMembersModal(false)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tabs: Recent Direct Chats vs All Users */}
+              <div className="flex items-center p-1 bg-[#050a1b] rounded-2xl border border-blue-900/40">
+                <button
+                  onClick={() => setAddMembersTab("chats")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                    addMembersTab === "chats"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>My Direct Chats ({directChatUsers.length})</span>
+                </button>
+                <button
+                  onClick={() => setAddMembersTab("all")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+                    addMembersTab === "all"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>All Users ({allNonMembers.length})</span>
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search contacts by name or email..."
+                  value={addMemberSearch}
+                  onChange={(e) => setAddMemberSearch(e.target.value)}
+                  className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Candidates List */}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-blue-900/40 min-h-[160px] max-h-[260px]">
+                {displayedAddCandidateUsers.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500 space-y-1">
+                    <Users className="w-8 h-8 mx-auto opacity-40 mb-2" />
+                    <p className="text-xs font-semibold">No eligible contacts found</p>
+                    <p className="text-[10px]">
+                      {addMembersTab === "chats"
+                        ? "You haven't direct-chatted with anyone who isn't already in this group."
+                        : "All registered users are already members of this group."}
+                    </p>
+                  </div>
+                ) : (
+                  displayedAddCandidateUsers.map((user) => {
+                    const isSelected = selectedNewMemberIds.includes(user.id);
+                    const wasRemoved = group.removedMemberIds?.includes(user.id);
+
+                    return (
+                      <div
+                        key={user.id}
+                        onClick={() => handleToggleSelectNewMember(user.id)}
+                        className={`p-2.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? "bg-blue-950/40 border-blue-500/60 shadow-md"
+                            : "bg-[#050a1b] border-blue-950 hover:border-blue-900/60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <button
+                            type="button"
+                            className="text-slate-400 hover:text-white shrink-0"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-blue-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-500" />
+                            )}
+                          </button>
+
+                          <img
+                            src={user.avatar || "https://api.dicebear.com/7.x/identicon/svg?seed=" + user.id}
+                            alt={user.username}
+                            className="w-9 h-9 rounded-xl object-cover bg-slate-700 shrink-0 ring-1 ring-blue-500/20"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-xs text-slate-100 truncate">
+                                {user.username}
+                              </span>
+                              {wasRemoved && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold flex items-center gap-0.5 border border-amber-500/30">
+                                  <Ban className="w-2.5 h-2.5 text-amber-400" />
+                                  Removed (Re-admit)
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 block truncate">{user.email}</span>
+                          </div>
+                        </div>
+
+                        {/* Quick 1-Click Add Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onManageMembers("add", user.id);
+                            setShowAddMembersModal(false);
+                          }}
+                          className="px-2.5 py-1 bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-bold rounded-lg border border-blue-500/40 flex items-center gap-1 shrink-0 transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Bottom Action Footer */}
+              <div className="pt-2 border-t border-blue-900/50 flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-400">
+                  {selectedNewMemberIds.length} contact(s) selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMembersModal(false)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedNewMemberIds.length === 0}
+                    onClick={handleConfirmAddMembers}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md ${
+                      selectedNewMemberIds.length > 0
+                        ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white cursor-pointer active:scale-95"
+                        : "bg-slate-800 text-slate-500 cursor-not-allowed opacity-60"
+                    }`}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Add Selected ({selectedNewMemberIds.length})</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
