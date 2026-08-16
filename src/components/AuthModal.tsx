@@ -17,7 +17,8 @@ import {
   Smile,
   Zap,
   Camera,
-  RefreshCw
+  RefreshCw,
+  CheckCircle2
 } from "lucide-react";
 
 interface AuthModalProps {
@@ -152,26 +153,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
       onLoginSuccess(data.user);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Quick Demo Login Helper
-  const handleQuickDemoLogin = async (demoEmail: string) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: demoEmail, password: "password123" })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-      onLoginSuccess(data.user);
-    } catch (err: any) {
-      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -371,65 +352,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onLoginSuccess }) => {
               )}
             </button>
 
-            {/* Quick Demo Login Option */}
-            <div className="pt-5 mt-5 border-t border-blue-950/70">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 text-center">
-                ⚡ Quick Demo Accounts (1-Click Login)
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin("alex@wavegram.com")}
-                  className="p-2 rounded-xl bg-[#0c1636] hover:bg-[#132454] border border-blue-900/50 text-left transition-all group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <img
-                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                      alt="Alex"
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                    <span className="text-[11px] font-bold text-slate-200 group-hover:text-blue-400 truncate">
-                      Alex
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-slate-500 block truncate mt-0.5">Admin</span>
-                </button>
+            {/* Professional Platform Trust & Security Features */}
+            <div className="pt-5 mt-5 border-t border-blue-950/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  <span>Enterprise Security & Performance</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Encrypted & Live</span>
+                </div>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin("sarah@wavegram.com")}
-                  className="p-2 rounded-xl bg-[#0c1636] hover:bg-[#132454] border border-blue-900/50 text-left transition-all group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <img
-                      src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80"
-                      alt="Sarah"
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                    <span className="text-[11px] font-bold text-slate-200 group-hover:text-blue-400 truncate">
-                      Sarah
-                    </span>
+              <div className="grid grid-cols-3 gap-2 text-left">
+                <div className="p-2.5 rounded-2xl bg-[#060c22] border border-blue-900/40 space-y-1 hover:border-blue-700/60 transition-colors">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                    <Lock className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[9px] text-slate-500 block truncate mt-0.5">Design</span>
-                </button>
+                  <div className="text-[11px] font-bold text-slate-200">End-to-End</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">
+                    256-bit encryption for chats & calls
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemoLogin("david@wavegram.com")}
-                  className="p-2 rounded-xl bg-[#0c1636] hover:bg-[#132454] border border-blue-900/50 text-left transition-all group"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <img
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-                      alt="David"
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                    <span className="text-[11px] font-bold text-slate-200 group-hover:text-blue-400 truncate">
-                      David
-                    </span>
+                <div className="p-2.5 rounded-2xl bg-[#060c22] border border-blue-900/40 space-y-1 hover:border-blue-700/60 transition-colors">
+                  <div className="w-6 h-6 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    <Zap className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-[9px] text-slate-500 block truncate mt-0.5">Audio</span>
-                </button>
+                  <div className="text-[11px] font-bold text-slate-200">Real-Time</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">
+                    Instant sync & HD audio / video
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-[#060c22] border border-blue-900/40 space-y-1 hover:border-blue-700/60 transition-colors">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-200">Privacy First</div>
+                  <div className="text-[10px] text-slate-400 leading-tight">
+                    Zero tracking & granular controls
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 px-0.5 text-[10px] text-slate-400/90 font-medium">
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <span>Secure WebSockets</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <span>Zero-Log Protocol</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                  <span>Cloud Synced</span>
+                </div>
               </div>
             </div>
           </form>
