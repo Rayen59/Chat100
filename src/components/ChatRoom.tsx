@@ -43,10 +43,17 @@ import {
   Plus,
   Trash,
   ShieldCheck,
-  Crown
+  Crown,
+  ChevronDown,
+  Feather,
+  Zap,
+  Camera,
+  PlusCircle
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
+import { GifStickerModal } from "./GifStickerModal";
+import { GifItem, StickerItem } from "../types";
 
 interface ChatRoomProps {
   currentUser: User;
@@ -113,11 +120,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null); // messageId
-  const [showGifModal, setShowGifModal] = useState(false);
+  const [showGifStickerModal, setShowGifStickerModal] = useState(false);
+  const [gifStickerTab, setGifStickerTab] = useState<"gifs" | "stickers" | "maker">("stickers");
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [gifQuery, setGifQuery] = useState("");
-  const [gifResults, setGifResults] = useState<{ id: string; title: string; url: string }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
@@ -134,9 +140,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [pollAllowMultiple, setPollAllowMultiple] = useState(false);
   const [activePollMsg, setActivePollMsg] = useState<Message | null>(null);
 
+  // Scroll & UX states
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevMsgCountRef = useRef<number>(messages.length);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
@@ -252,33 +266,98 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const avatar = conversation.type === "group" ? group?.avatar : otherUser?.avatar;
   const isOnline = conversation.type === "dm" && otherUser?.status === "online";
 
-  // Auto scroll to bottom when new messages arrive
+  // Auto focus input when switching conversations
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [conversation.id]);
+
+  // Handle scrolling detection
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isUp = distanceFromBottom > 120;
+    setIsScrolledUp(isUp);
+    if (!isUp) {
+      setUnreadBelowCount(0);
+    }
+  };
+
+  // Smart scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      const isNearBottom = distanceFromBottom <= 160;
+
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        setUnreadBelowCount(0);
+      } else if (messages.length > prevMsgCountRef.current) {
+        // Increment unread count while reading earlier history
+        const diff = messages.length - prevMsgCountRef.current;
+        setUnreadBelowCount((prev) => prev + diff);
+      }
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    prevMsgCountRef.current = messages.length;
   }, [messages]);
 
-  // Load GIFs
-  useEffect(() => {
-    if (showGifModal) {
-      fetch(`/api/gifs/search?q=${encodeURIComponent(gifQuery)}`)
-        .then((res) => res.json())
-        .then((data) => setGifResults(data.gifs || []))
-        .catch(() => {});
-    }
-  }, [showGifModal, gifQuery]);
+  // Handlers for sending rich GIFs & Stickers
+  const handleSendGif = (gif: GifItem) => {
+    onSendMessage({
+      type: "gif",
+      mediaUrl: gif.url,
+      text: gif.title,
+      replyTo: replyTo || undefined
+    });
+    setReplyTo(null);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
+  };
 
-  const handleSend = () => {
+  const handleSendSticker = (sticker: StickerItem) => {
+    onSendMessage({
+      type: "sticker",
+      mediaUrl: sticker.url,
+      text: sticker.title,
+      replyTo: replyTo || undefined
+    });
+    setReplyTo(null);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
+  };
+
+  const handleSend = (e?: React.MouseEvent | React.TouchEvent | React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!inputText.trim()) return;
+
     onSendMessage({
       text: inputText.trim(),
       type: "text",
       replyTo: replyTo || undefined
     });
+
     setInputText("");
     setReplyTo(null);
+
+    // CRITICAL: Keep focus so mobile virtual keyboard does not hide/dismiss!
     if (textareaRef.current) {
       textareaRef.current.style.height = "42px";
+      textareaRef.current.focus();
     }
+
+    // Scroll directly to latest message
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setIsScrolledUp(false);
+      setUnreadBelowCount(0);
+    }, 40);
   };
 
   // Poll Handlers
@@ -660,7 +739,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-900/30">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-900/30 relative"
+      >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
             <div className="w-16 h-16 rounded-3xl bg-[#09112a] border border-blue-900/50 flex items-center justify-center mb-3 text-blue-400 shadow-[0_0_25px_rgba(59,130,246,0.2)]">
@@ -985,8 +1068,62 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
                       {/* GIF CONTENT */}
                       {msg.type === "gif" && msg.mediaUrl && (
-                        <div className="rounded-xl overflow-hidden my-1">
-                          <img src={msg.mediaUrl} alt="GIF" className="max-h-52 w-full object-cover" />
+                        <div className="rounded-xl overflow-hidden my-1 bg-black/20">
+                          <img src={msg.mediaUrl} alt="GIF" className="max-h-56 w-full object-cover" />
+                        </div>
+                      )}
+
+                      {/* STICKER CONTENT (Spécial Plumes & Stickers Animés) */}
+                      {msg.type === "sticker" && msg.mediaUrl && (
+                        <div className="my-1.5 flex flex-col items-center group/stk relative py-1">
+                          {(() => {
+                            const titleLower = (msg.text || "").toLowerCase();
+                            const isFeather = titleLower.includes("plume") || titleLower.includes("feather");
+                            const isGold = titleLower.includes("or") || titleLower.includes("gold") || titleLower.includes("royal");
+                            const isCyber = titleLower.includes("cyber") || titleLower.includes("glow") || titleLower.includes("neon");
+                            const isHeart = titleLower.includes("cœur") || titleLower.includes("heart") || titleLower.includes("love");
+                            const isBounce = titleLower.includes("bounce") || titleLower.includes("jump");
+
+                            let animClass = isFeather
+                              ? "animate-feather-float"
+                              : isGold
+                              ? "animate-sticker-gold"
+                              : isCyber
+                              ? "animate-sticker-glow"
+                              : isHeart
+                              ? "animate-sticker-pulse"
+                              : isBounce
+                              ? "animate-sticker-bounce"
+                              : "animate-feather-float";
+
+                            return (
+                              <div className="relative rounded-3xl p-3 bg-gradient-to-b from-white/10 via-black/20 to-black/40 backdrop-blur-md border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:scale-105 transition-all">
+                                <div className={animClass}>
+                                  <img
+                                    src={msg.mediaUrl}
+                                    alt={msg.text || "Sticker"}
+                                    className="w-40 h-40 sm:w-48 sm:h-48 object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.65)] transition-transform duration-300"
+                                    loading="lazy"
+                                  />
+                                </div>
+                                {isFeather && (
+                                  <span className="absolute -top-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-[#030612] text-[10px] font-black shadow-lg flex items-center gap-1 border border-white/80 ring-2 ring-cyan-400/40">
+                                    <Feather className="w-3 h-3 text-[#030612]" /> Plume Animée
+                                  </span>
+                                )}
+                                {!isFeather && isGold && (
+                                  <span className="absolute -top-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 text-black text-[10px] font-black shadow-lg flex items-center gap-1 border border-white/80 ring-2 ring-amber-400/40">
+                                    <Sparkles className="w-3 h-3 text-black" /> Or Royal
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {msg.text && (
+                            <span className="mt-2 text-[11px] font-bold text-slate-200 px-3 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 shadow-sm">
+                              {msg.text}
+                            </span>
+                          )}
                         </div>
                       )}
 
@@ -1168,6 +1305,29 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Floating Smart Scroll-To-Bottom Button */}
+      {isScrolledUp && (
+        <div className="absolute bottom-20 right-6 z-30 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <button
+            type="button"
+            onClick={() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+              setIsScrolledUp(false);
+              setUnreadBelowCount(0);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#09112a]/95 hover:bg-blue-600 border border-blue-500/50 hover:border-cyan-400 text-slate-100 shadow-[0_8px_25px_rgba(37,99,235,0.4)] text-xs font-bold transition-all duration-200 backdrop-blur-xl group hover:scale-105 active:scale-95"
+          >
+            <ChevronDown className="w-4 h-4 text-cyan-400 group-hover:text-white group-hover:translate-y-0.5 transition-all" />
+            <span>Scroll down</span>
+            {unreadBelowCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-cyan-400 text-[#030612] text-[10px] font-black animate-pulse">
+                +{unreadBelowCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Reply Preview Bar */}
       {replyTo && (
         <div className="px-4 py-2 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-between text-xs text-slate-300">
@@ -1219,145 +1379,231 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <span>You cannot send messages to this contact.</span>
         </div>
       ) : (
-        <div className="p-3 bg-[#09112a] border-t border-blue-950/70 flex items-center gap-2">
+        <div className="p-2 sm:p-3 bg-[#050814]/95 border-t border-slate-800/80 backdrop-blur-md shadow-2xl relative">
+          {/* Plus Actions Popup Menu */}
+          {showPlusMenu && (
+            <div className="absolute bottom-full right-4 sm:right-12 mb-2 w-56 sm:w-64 bg-[#0d1326] border border-blue-800/60 rounded-3xl p-2 shadow-2xl text-slate-200 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-xl">
+              <div className="p-1 space-y-1">
+                <button
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    setGifStickerTab("maker");
+                    setShowGifStickerModal(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-pink-950/40 text-pink-300 text-xs font-bold transition-colors text-left"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                  <div className="flex flex-col">
+                    <span>Studio Créateur Stickers</span>
+                    <span className="text-[10px] text-pink-200/60 font-normal">Importer & découper photo</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    setGifStickerTab("stickers");
+                    setShowGifStickerModal(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-cyan-950/40 text-cyan-300 text-xs font-bold transition-colors text-left"
+                >
+                  <Feather className="w-4 h-4 text-cyan-400" />
+                  <div className="flex flex-col">
+                    <span>Plumes & Stickers Animés</span>
+                    <span className="text-[10px] text-cyan-200/60 font-normal">Collection HD & effets</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    setGifStickerTab("gifs");
+                    setShowGifStickerModal(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-blue-950/40 text-slate-200 text-xs font-bold transition-colors text-left"
+                >
+                  <Zap className="w-4 h-4 text-cyan-400" />
+                  <div className="flex flex-col">
+                    <span>GIFs Tendances</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Recherche illimitée</span>
+                  </div>
+                </button>
+
+                {conversation.type === "group" && isGroupAdmin && (
+                  <button
+                    onClick={() => {
+                      setShowPlusMenu(false);
+                      setShowCreatePollModal(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-blue-900/30 text-blue-300 text-xs font-bold transition-colors text-left"
+                  >
+                    <BarChart2 className="w-4 h-4 text-cyan-400" />
+                    <div className="flex flex-col">
+                      <span>Créer un Sondage</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Votes interactifs</span>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setShowPlusMenu(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-slate-800 text-slate-300 text-xs font-bold transition-colors text-left"
+                >
+                  <Paperclip className="w-4 h-4 text-slate-400" />
+                  <div className="flex flex-col">
+                    <span>Document & Fichier</span>
+                    <span className="text-[10px] text-slate-400 font-normal">PDF, audio, archive</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hidden File Inputs */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
             className="hidden"
           />
+          <input
+            type="file"
+            ref={cameraInputRef}
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            title="Attach File or Media"
-            className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0"
-          >
-            <Paperclip className="w-5 h-5" />
-          </button>
-
-          <button
-            onClick={() => setShowGifModal(true)}
-            title="Search GIFs"
-            className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors font-bold text-xs border border-blue-900/50 px-2.5 shrink-0"
-          >
-            GIF
-          </button>
-
-          {conversation.type === "group" && isGroupAdmin && (
-            <button
-              onClick={() => setShowCreatePollModal(true)}
-              title="Create Poll & Vote (Admin Only)"
-              className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/40 rounded-xl transition-colors font-bold text-xs border border-cyan-800/50 px-2.5 flex items-center gap-1.5 shrink-0 shadow-sm shadow-cyan-900/20"
-            >
-              <BarChart2 className="w-4 h-4 text-cyan-400" />
-              <span className="hidden sm:inline">Poll</span>
-            </button>
-          )}
-
+          {/* RECORDING MODE BANNER */}
           {isRecording ? (
-            <div className="flex-1 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 flex items-center justify-between text-rose-300 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
-                <span>Recording Voice Note... 0:0{recordingSeconds}s</span>
+            <div className="max-w-4xl mx-auto w-full bg-rose-500/15 border border-rose-500/30 rounded-full px-4 py-2 flex items-center justify-between text-rose-300 text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                <span className="font-bold tracking-wide">Enregistrement vocal en cours... 0:0{recordingSeconds}s</span>
               </div>
               <button
                 onClick={stopRecording}
-                className="px-3 py-1 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-500"
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-full shadow-lg transition-all active:scale-95"
               >
-                Send Voice
+                Envoyer la Voix
               </button>
             </div>
           ) : (
-            <div className="flex-1 relative flex items-center">
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                placeholder="Type a message or paste GIF/Image from keyboard..."
-                value={inputText}
-                onChange={(e) => {
-                  setInputText(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                }}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                style={{ minHeight: "42px", maxHeight: "120px" }}
-                className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-4 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-100 placeholder-slate-500 transition-all resize-none overflow-y-auto leading-relaxed scrollbar-thin scrollbar-thumb-blue-900/40"
-              />
-            </div>
-          )}
-
-          {!isRecording && (
-            <button
-              onClick={startRecording}
-              title="Hold to Record Voice Note"
-              className="p-2.5 text-slate-400 hover:text-blue-400 hover:bg-blue-900/30 rounded-xl transition-colors shrink-0 self-end mb-0.5"
-            >
-              <Mic className="w-5 h-5" />
-            </button>
-          )}
-
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            style={
-              group?.themeColor && inputText.trim()
-                ? {
-                    background: `linear-gradient(135deg, ${group.themeColor}, #3b82f6)`,
-                    boxShadow: `0 4px 15px ${group.themeColor}50`
-                  }
-                : undefined
-            }
-            className="p-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white rounded-xl shadow-lg shadow-blue-600/25 disabled:opacity-40 transition-all shrink-0 active:scale-95 self-end mb-0.5"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* GIF Picker Modal */}
-      {showGifModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/80 backdrop-blur-md p-4">
-          <div className="bg-[#09112a] border border-blue-900/60 rounded-3xl p-5 w-full max-w-md text-slate-100 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-sm text-slate-200">Search & Send GIFs</h3>
+            /* UNIFIED CAPSULE / PILL INPUT BAR (INSTAGRAM/MESSENGER STYLE) */
+            <div className="max-w-4xl mx-auto w-full flex items-center bg-[#171a24] border border-slate-700/60 hover:border-slate-600 rounded-full px-1.5 py-1 shadow-2xl transition-all">
+              
+              {/* LEFT: BLUE/PURPLE CAMERA BUTTON */}
               <button
-                onClick={() => setShowGifModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white"
+                onClick={() => cameraInputRef.current?.click()}
+                title="Appareil Photo / Prendre une photo"
+                className="w-10 h-10 rounded-full bg-[#5b52f9] hover:bg-[#4f46e5] flex items-center justify-center shrink-0 text-white shadow-md transition-transform active:scale-90 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <Camera className="w-5 h-5 text-white" />
               </button>
-            </div>
 
-            <input
-              type="text"
-              placeholder="Search GIFs..."
-              value={gifQuery}
-              onChange={(e) => setGifQuery(e.target.value)}
-              className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2 px-3 text-xs text-white mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-
-            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto p-1">
-              {gifResults.map((gif) => (
-                <button
-                  key={gif.id}
-                  onClick={() => {
-                    onSendMessage({
-                      type: "gif",
-                      mediaUrl: gif.url,
-                      text: gif.title
-                    });
-                    setShowGifModal(false);
+              {/* MIDDLE: EXPANDABLE TEXTAREA WITH SMOOTH INTERNAL SCROLLING */}
+              <div className="flex-1 min-w-0 flex items-center px-2 py-0.5">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  placeholder="Votre message..."
+                  value={inputText}
+                  onChange={(e) => {
+                    setInputText(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 88)}px`;
                   }}
-                  className="rounded-xl overflow-hidden hover:scale-105 transition-transform bg-[#050a1b] aspect-video"
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  style={{ minHeight: "26px", maxHeight: "88px" }}
+                  className="w-full bg-transparent text-slate-100 placeholder-slate-400/90 text-sm focus:outline-none resize-none py-1 leading-relaxed overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700"
+                />
+              </div>
+
+              {/* RIGHT ICONS: STRICTLY FIXED SIZE (SHRINK-0) SO THEY NEVER EXPAND */}
+              <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 pr-1">
+                
+                {/* 1. MIC (or SEND BUTTON when text is typed) */}
+                {inputText.trim() ? (
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onTouchStart={(e) => {}}
+                    style={
+                      group?.themeColor
+                        ? {
+                            background: `linear-gradient(135deg, ${group.themeColor}, #3b82f6)`,
+                            boxShadow: `0 2px 10px ${group.themeColor}50`
+                          }
+                        : undefined
+                    }
+                    title="Envoyer le message"
+                    className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white flex items-center justify-center shrink-0 shadow-md transition-transform active:scale-90 cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={startRecording}
+                    title="Enregistrer un message vocal"
+                    className="w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  >
+                    <Mic className="w-5 h-5" />
+                  </button>
+                )}
+
+                {/* 2. GALLERY / IMAGE PICKER */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Envoyer une image de la galerie"
+                  className="w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                 >
-                  <img src={gif.url} alt={gif.title} className="w-full h-full object-cover" />
+                  <ImageIcon className="w-5 h-5" />
                 </button>
-              ))}
+
+                {/* 3. STICKER / SMILE ICON */}
+                <button
+                  onClick={() => {
+                    setGifStickerTab("stickers");
+                    setShowGifStickerModal(true);
+                  }}
+                  title="Stickers Animés & Plumes Magiques"
+                  className="w-9 h-9 rounded-full text-slate-300 hover:text-cyan-300 hover:bg-white/10 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+
+                {/* 4. PLUS BUTTON (EXTRA OPTIONS) */}
+                <button
+                  onClick={() => setShowPlusMenu((prev) => !prev)}
+                  title="Plus d'options (Studio Stickers, Sondages, Fichiers)"
+                  className={`w-9 h-9 rounded-full text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                    showPlusMenu ? "rotate-45 text-cyan-400 bg-white/10" : ""
+                  }`}
+                >
+                  <PlusCircle className="w-5 h-5" />
+                </button>
+              </div>
+
             </div>
-          </div>
+          )}
+
         </div>
       )}
+
+      {/* Rich GIFs & Stickers Modal (with Feather / Plumes Themes) */}
+      <GifStickerModal
+        isOpen={showGifStickerModal}
+        onClose={() => setShowGifStickerModal(false)}
+        onSendGif={handleSendGif}
+        onSendSticker={handleSendSticker}
+        initialTab={gifStickerTab}
+      />
 
       {/* Admin Create Poll Modal */}
       {showCreatePollModal && (

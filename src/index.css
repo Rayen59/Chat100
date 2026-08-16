@@ -1,1 +1,103 @@
 @import "tailwindcss";
+
+@keyframes featherFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) rotate(3deg) scale(1.03);
+  }
+}
+
+@keyframes featherSway {
+  0%, 100% {
+    transform: rotate(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-5px);
+  }
+}
+
+@keyframes stickerGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.8)) drop-shadow(0 0 25px rgba(168, 85, 247, 0.5));
+  }
+}
+
+@keyframes stickerGoldGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(234, 179, 8, 0.5));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(250, 204, 21, 0.9)) drop-shadow(0 0 28px rgba(245, 158, 11, 0.6));
+  }
+}
+
+@keyframes stickerPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes stickerBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-6px) scale(1.02);
+  }
+  60% {
+    transform: translateY(2px) scale(0.98);
+  }
+}
+
+@keyframes shimmerSparkle {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-feather-float {
+  animation: featherFloat 4s ease-in-out infinite;
+}
+
+.animate-feather-sway {
+  animation: featherSway 3.5s ease-in-out infinite;
+}
+
+.animate-sticker-glow {
+  animation: stickerGlow 3s ease-in-out infinite;
+}
+
+.animate-sticker-gold {
+  animation: stickerGoldGlow 3s ease-in-out infinite;
+}
+
+.animate-sticker-pulse {
+  animation: stickerPulse 2.5s ease-in-out infinite;
+}
+
+.animate-sticker-bounce {
+  animation: stickerBounce 2.8s ease-in-out infinite;
+}
+
+.sticker-outline-white {
+  filter: drop-shadow(2px 0 0 #ffffff) drop-shadow(-2px 0 0 #ffffff) drop-shadow(0 2px 0 #ffffff) drop-shadow(0 -2px 0 #ffffff) drop-shadow(0 8px 12px rgba(0,0,0,0.4));
+}
+
+.sticker-outline-cyan {
+  filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.9)) drop-shadow(0 0 20px rgba(59, 130, 246, 0.6));
+}
+
+.sticker-outline-gold {
+  filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.9)) drop-shadow(0 0 20px rgba(245, 158, 11, 0.6));
+}

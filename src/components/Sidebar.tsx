@@ -232,10 +232,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isActive = conv.id === activeConversationId;
 
                 return (
-                  <button
+                  <div
                     key={conv.id}
                     onClick={() => onSelectConversation(conv.id)}
-                    className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left group ${
+                    className={`w-full p-3 rounded-2xl flex items-center gap-3 transition-all text-left group cursor-pointer ${
                       isActive
                         ? "bg-gradient-to-r from-blue-600/25 via-indigo-600/15 to-transparent border border-blue-500/40 text-white shadow-lg shadow-blue-600/15"
                         : "hover:bg-[#09112a] text-slate-300 border border-transparent hover:border-blue-900/30"
@@ -297,7 +297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                  </button>
+                  </div>
                 );
               })
             )}

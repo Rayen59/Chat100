@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { User, Message, Conversation, Group, ActiveCall, ReplyToMessage } from "./types";
 import { AuthModal } from "./components/AuthModal";
 import { Sidebar } from "./components/Sidebar";
@@ -60,6 +60,17 @@ export default function App() {
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [incomingCall, setIncomingCall] = useState<ActiveCall | null>(null);
 
+  // Keep fresh refs for SSE event handler
+  const activeConversationIdRef = useRef<string | null>(activeConversationId);
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  const allUsersRef = useRef<User[]>(allUsers);
+  useEffect(() => {
+    allUsersRef.current = allUsers;
+  }, [allUsers]);
+
   // Load initial dataset
   const fetchData = async () => {
     try {
@@ -117,25 +128,39 @@ export default function App() {
 
     eventSource.addEventListener("new_message", (e: any) => {
       const newMsg: Message = JSON.parse(e.data);
+      const isViewingThisChat = activeConversationIdRef.current === newMsg.conversationId;
 
-      // Trigger notification if message is from another user
-      if (newMsg.senderId !== currentUser.id) {
+      // Trigger notification if message is from another user AND user is not currently in this chat
+      if (newMsg.senderId !== currentUser.id && !isViewingThisChat) {
         playNotificationSound();
-        const sender = allUsers.find((u) => u.id === newMsg.senderId);
+        const sender = allUsersRef.current.find((u) => u.id === newMsg.senderId);
         const notif: AppNotification = {
           id: Math.random().toString(),
           type: "message",
           title: "New Message",
           senderName: newMsg.senderName || sender?.username || "Wavegram User",
-          senderAvatar: sender?.avatar,
-          text: newMsg.type === "voice" ? "🎤 Sent a voice note" : newMsg.text || "Sent a media file",
+          senderAvatar: newMsg.senderAvatar || sender?.avatar,
+          text:
+            newMsg.type === "voice"
+              ? "🎤 Sent a voice note"
+              : newMsg.type === "image"
+              ? "📷 Sent an image"
+              : newMsg.type === "video"
+              ? "🎥 Sent a video"
+              : newMsg.type === "file"
+              ? "📎 Sent an attachment"
+              : newMsg.type === "gif"
+              ? "👾 Sent a GIF"
+              : newMsg.type === "poll"
+              ? "📊 Created a group poll"
+              : newMsg.text || "Sent a message",
           conversationId: newMsg.conversationId,
           createdAt: newMsg.createdAt
         };
         setNotifications((prev) => [...prev, notif]);
       }
 
-      if (newMsg.conversationId === activeConversationId) {
+      if (isViewingThisChat) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === newMsg.id)) return prev;
           // Clean up temp optimistic messages if matched

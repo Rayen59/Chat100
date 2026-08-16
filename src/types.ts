@@ -47,7 +47,7 @@ export interface Message {
   senderName: string;
   senderAvatar: string;
   text: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'gif' | 'poll';
+  type: 'text' | 'image' | 'video' | 'audio' | 'voice' | 'file' | 'gif' | 'poll' | 'sticker';
   mediaUrl?: string;
   mediaName?: string;
   mediaSize?: string;
@@ -146,4 +146,27 @@ export interface UserAnalytics {
   mediaBreakdown: { name: string; value: number }[];
   engagementScore: number; // 0 - 100
   topContacts: TopContact[];
+}
+
+export interface GifItem {
+  id: string;
+  title: string;
+  url: string;
+  category?: string;
+  tags?: string[];
+  aspect?: string;
+}
+
+export interface StickerItem {
+  id: string;
+  title: string;
+  url: string;
+  category: string;
+  tags: string[];
+  isFeather?: boolean;
+  animationStyle?: "feather-float" | "feather-sway" | "glow" | "gold" | "pulse" | "bounce" | "none";
+  isCustom?: boolean;
+  shape?: "circle" | "rounded" | "heart" | "star" | "feather" | "stamp";
+  outlineStyle?: "white" | "cyan" | "gold" | "none";
+  caption?: string;
 }

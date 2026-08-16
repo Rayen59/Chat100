@@ -555,6 +555,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
   if (type === "voice") previewText = "🎤 Voice note";
   if (type === "image") previewText = "📷 Image";
   if (type === "gif") previewText = "👾 GIF";
+  if (type === "sticker") previewText = `🪶 ${text || "Sticker"}`;
   if (type === "poll") previewText = `📊 Poll: ${formattedPoll?.question || "New Vote"}`;
 
   conv.lastMessage = {
@@ -1101,29 +1102,311 @@ app.post("/api/groups/members", (req: Request, res: Response) => {
 });
 
 // 16. GIF Search / Trending Endpoint
-app.get("/api/gifs/search", (req: Request, res: Response) => {
-  const query = (req.query.q as string) || "";
-  // Curated trending & search GIFs list with high quality tenor/giphy preview URLs
-  const defaultGifs = [
-    { id: "1", title: "Celebration", url: "https://media.giphy.com/media/26tp15iV2r2R1yL3q/giphy.gif" },
-    { id: "2", title: "Thumbs Up", url: "https://media.giphy.com/media/13G7rg64yjh3l6/giphy.gif" },
-    { id: "3", title: "Mind Blown", url: "https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif" },
-    { id: "4", title: "Laughing", url: "https://media.giphy.com/media/l1J3pT777D3UsN2uA/giphy.gif" },
-    { id: "5", title: "Dancing", url: "https://media.giphy.com/media/3o7qDQ4kcSD1v8AEIQ/giphy.gif" },
-    { id: "6", title: "Cool Cat", url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" },
-    { id: "7", title: "Shocked", url: "https://media.giphy.com/media/51Upo5y22TCE0/giphy.gif" },
-    { id: "8", title: "Cute Wave", url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcGZuaHM3N3E5NXg2azR6czgwOWUya3ByM3h6dHkzODUzc3Nwb3k1MCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L13y8N9T7p8qA/giphy.gif" }
-  ];
+// 16. Comprehensive GIF Search & Categorized Catalog
+const COMPREHENSIVE_GIFS = [
+  // Professional & Business
+  { id: "g_pro_1", title: "Success & Cheering", category: "pro", tags: ["success", "work", "win", "celebrate", "pro"], url: "https://media.giphy.com/media/26tp15iV2r2R1yL3q/giphy.gif" },
+  { id: "g_pro_2", title: "Cheers Leonardo DiCaprio", category: "pro", tags: ["cheers", "toast", "great job", "pro", "class"], url: "https://media.giphy.com/media/GCLlQnV7dXZ2E/giphy.gif" },
+  { id: "g_pro_3", title: "High Five Teamwork", category: "pro", tags: ["high five", "team", "collab", "work", "pro"], url: "https://media.giphy.com/media/3oEjHV0z8S7WM4MwnK/giphy.gif" },
+  { id: "g_pro_4", title: "Fast Coding Hacker", category: "tech", tags: ["code", "coding", "developer", "typing", "tech"], url: "https://media.giphy.com/media/ule4akeXnUSVa/giphy.gif" },
+  { id: "g_pro_5", title: "Rocket Launch Off", category: "pro", tags: ["rocket", "launch", "startup", "growth", "boost"], url: "https://media.giphy.com/media/mi6DsSSKsJAaI/giphy.gif" },
+  { id: "g_pro_6", title: "Standing Ovation Applause", category: "pro", tags: ["applause", "clapping", "bravo", "respect", "pro"], url: "https://media.giphy.com/media/fnK0jeA8vIh2QLq3IZ/giphy.gif" },
+  { id: "g_pro_7", title: "Thumbs Up Approval", category: "reactions", tags: ["thumbs up", "agree", "yes", "approved", "ok"], url: "https://media.giphy.com/media/13G7rg64yjh3l6/giphy.gif" },
+  { id: "g_pro_8", title: "Mind Blown Galaxy", category: "reactions", tags: ["mind blown", "wow", "amazing", "genius", "space"], url: "https://media.giphy.com/media/xT0xeJpnrWC4XWblEk/giphy.gif" },
+  { id: "g_pro_9", title: "Nodding in Agreement", category: "reactions", tags: ["nod", "agree", "yes", "understood", "listen"], url: "https://media.giphy.com/media/n4o4W99YdfSHK/giphy.gif" },
+  { id: "g_pro_10", title: "Cyber Matrix Code Stream", category: "tech", tags: ["matrix", "cyber", "neon", "code", "tech"], url: "https://media.giphy.com/media/eIm624c8nnNbiG0V3g/giphy.gif" },
+  { id: "g_pro_11", title: "Coffee Steam Focus", category: "vibe", tags: ["coffee", "morning", "work", "focus", "cafe"], url: "https://media.giphy.com/media/hPTZgtzfRIB5Nfb5rL/giphy.gif" },
+  { id: "g_pro_12", title: "Popcorn Watching Drama", category: "reactions", tags: ["popcorn", "movie", "excited", "chat", "fun"], url: "https://media.giphy.com/media/gl0mkIZOW6Nwc/giphy.gif" },
+  { id: "g_pro_13", title: "Dancing Carlton Celebration", category: "vibe", tags: ["dance", "party", "happy", "friday", "fun"], url: "https://media.giphy.com/media/3o7qDQ4kcSD1v8AEIQ/giphy.gif" },
+  { id: "g_pro_14", title: "Cool Hacker Cat", category: "vibe", tags: ["cat", "hacker", "cool", "vibes", "cute"], url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" },
+  { id: "g_pro_15", title: "Golden Sparkles Magic", category: "plumes", tags: ["sparkle", "gold", "feather", "magic", "plume", "art"], url: "https://media.giphy.com/media/3oz8xAFtqoOUUrsh7W/giphy.gif" },
+  { id: "g_pro_16", title: "Floating Ink & Feather Quill", category: "plumes", tags: ["feather", "plume", "quill", "write", "poetry", "ink"], url: "https://media.giphy.com/media/3ohzdIuqJoo8QdKlnW/giphy.gif" },
+  { id: "g_pro_17", title: "Neon Synthwave Ride", category: "tech", tags: ["synthwave", "neon", "retro", "future", "car"], url: "https://media.giphy.com/media/XIqCQx02E1U9W/giphy.gif" },
+  { id: "g_pro_18", title: "Let's Go Hype", category: "reactions", tags: ["hype", "lets go", "win", "fire", "pumped"], url: "https://media.giphy.com/media/7WvAUvZZTRpSuudobh/giphy.gif" },
+  { id: "g_pro_19", title: "Lofi Beats Relaxing Room", category: "vibe", tags: ["lofi", "relax", "music", "night", "study"], url: "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif" },
+  { id: "g_pro_20", title: "Peacock Royal Feathers Spread", category: "plumes", tags: ["peacock", "feather", "plume", "beauty", "nature"], url: "https://media.giphy.com/media/3o7TKMt1VVNkHV2PaE/giphy.gif" },
+  { id: "g_pro_21", title: "Laughing Out Loud LOL", category: "reactions", tags: ["laugh", "lol", "funny", "joke", "haha"], url: "https://media.giphy.com/media/l1J3pT777D3UsN2uA/giphy.gif" },
+  { id: "g_pro_22", title: "Galaxy Nebula Swirl", category: "tech", tags: ["galaxy", "space", "stars", "universe", "glow"], url: "https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif" },
+  { id: "g_pro_23", title: "Phoenix Rising Fire", category: "plumes", tags: ["phoenix", "fire", "feather", "plume", "epic"], url: "https://media.giphy.com/media/3o7TKTDnUxE0g2fSE8/giphy.gif" },
+  { id: "g_pro_24", title: "Cute Panda Wave", category: "vibe", tags: ["panda", "hello", "cute", "wave", "welcome"], url: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcGZuaHM3N3E5NXg2azR6czgwOWUya3ByM3h6dHkzODUzc3Nwb3k1MCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/L13y8N9T7p8qA/giphy.gif" }
+];
 
-  if (!query.trim()) {
-    return res.json({ gifs: defaultGifs });
+// Rich Stickers Collection with dedicated Plumes / Feathers & Multi-theme Packs
+const COMPREHENSIVE_STICKERS = [
+  // 🪶 THEME 1: Plumes & Feathers (Spécial Plumes Magnifiques & Animées)
+  {
+    id: "stk_feather_1",
+    title: "Plume d'Or Luminescente",
+    category: "plumes",
+    tags: ["plume", "feather", "gold", "or", "luxe", "magic"],
+    url: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "gold"
+  },
+  {
+    id: "stk_feather_2",
+    title: "Plume de Paon Royale",
+    category: "plumes",
+    tags: ["plume", "feather", "paon", "peacock", "royal", "emerald"],
+    url: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "feather-float"
+  },
+  {
+    id: "stk_feather_3",
+    title: "Plume de Phénix Flamboyante",
+    category: "plumes",
+    tags: ["plume", "feather", "phoenix", "fire", "flamme", "epic"],
+    url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "pulse"
+  },
+  {
+    id: "stk_feather_4",
+    title: "Plume d'Ange Céleste",
+    category: "plumes",
+    tags: ["plume", "feather", "ange", "angel", "celestial", "pure", "white"],
+    url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "feather-sway"
+  },
+  {
+    id: "stk_feather_5",
+    title: "Plume Calligraphie d'Encre",
+    category: "plumes",
+    tags: ["plume", "feather", "ink", "quill", "ecriture", "poesie"],
+    url: "https://images.unsplash.com/photo-1583484963886-cfe2bff2945f?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "feather-float"
+  },
+  {
+    id: "stk_feather_6",
+    title: "Plume Aurore Boréale",
+    category: "plumes",
+    tags: ["plume", "feather", "aurora", "cyan", "purple", "magic", "glow"],
+    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "glow"
+  },
+  {
+    id: "stk_feather_7",
+    title: "Plume Néon Cyberpunk",
+    category: "plumes",
+    tags: ["plume", "feather", "neon", "cyber", "futur", "holo"],
+    url: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "glow"
+  },
+  {
+    id: "stk_feather_8",
+    title: "Plume Féerique Pastel",
+    category: "plumes",
+    tags: ["plume", "feather", "pink", "pastel", "fairy", "douceur"],
+    url: "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=300&auto=format&fit=crop&q=80",
+    isFeather: true,
+    animationStyle: "feather-sway"
+  },
+  // 💎 THEME 2: 3D Glossy Emojis & Gems
+  {
+    id: "stk_3d_1",
+    title: "Golden Crown 3D",
+    category: "3d",
+    tags: ["crown", "king", "gold", "vip", "winner"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=crown3d",
+    animationStyle: "gold"
+  },
+  {
+    id: "stk_3d_2",
+    title: "Flaming Heart 3D",
+    category: "3d",
+    tags: ["heart", "fire", "love", "passion"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=fireheart",
+    animationStyle: "pulse"
+  },
+  {
+    id: "stk_3d_3",
+    title: "Crystal Diamond 3D",
+    category: "3d",
+    tags: ["diamond", "gem", "crystal", "rich"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=diamondgem",
+    animationStyle: "glow"
+  },
+  {
+    id: "stk_3d_4",
+    title: "Rocket Boost 3D",
+    category: "3d",
+    tags: ["rocket", "boost", "speed", "launch"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=boostrocket",
+    animationStyle: "bounce"
+  },
+  {
+    id: "stk_3d_5",
+    title: "Star Sparkle 3D",
+    category: "3d",
+    tags: ["star", "sparkle", "magic", "glow"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=starshine",
+    animationStyle: "gold"
+  },
+  {
+    id: "stk_3d_6",
+    title: "Champion Trophy 3D",
+    category: "3d",
+    tags: ["trophy", "win", "1st", "champion"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=trophywin",
+    animationStyle: "gold"
+  },
+  // ⚡ THEME 3: Cyberpunk & Neon Tech
+  {
+    id: "stk_cyber_1",
+    title: "Cyber Visor Hologram",
+    category: "cyber",
+    tags: ["cyber", "visor", "vr", "future", "neon"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=cybervisor",
+    animationStyle: "glow"
+  },
+  {
+    id: "stk_cyber_2",
+    title: "Neon Skull Pulse",
+    category: "cyber",
+    tags: ["neon", "skull", "cool", "cyberpunk"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=neonskull",
+    animationStyle: "pulse"
+  },
+  {
+    id: "stk_cyber_3",
+    title: "Retro Gamepad Glitch",
+    category: "cyber",
+    tags: ["gamepad", "gaming", "retro", "arcade"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=glitchpad",
+    animationStyle: "bounce"
+  },
+  {
+    id: "stk_cyber_4",
+    title: "Quantum Code Orb",
+    category: "cyber",
+    tags: ["quantum", "code", "ai", "tech"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=quantumai",
+    animationStyle: "glow"
+  },
+  // 🐱 THEME 4: Cute Kawaii & Pets
+  {
+    id: "stk_cute_1",
+    title: "Coder Cat Coffee",
+    category: "cute",
+    tags: ["cat", "coder", "coffee", "kawaii", "pet"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=catcoder",
+    animationStyle: "bounce"
+  },
+  {
+    id: "stk_cute_2",
+    title: "Happy Shiba Inu",
+    category: "cute",
+    tags: ["shiba", "dog", "happy", "doge", "pet"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=shibadoge",
+    animationStyle: "bounce"
+  },
+  {
+    id: "stk_cute_3",
+    title: "Panda Heart Hug",
+    category: "cute",
+    tags: ["panda", "hug", "love", "cute"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=pandahug",
+    animationStyle: "pulse"
+  },
+  {
+    id: "stk_cute_4",
+    title: "Fluffy Bunny Star",
+    category: "cute",
+    tags: ["bunny", "star", "fluffy", "cute"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=bunnyfluff",
+    animationStyle: "bounce"
+  },
+  // 🌸 THEME 5: Nature Zen & Aesthetic
+  {
+    id: "stk_zen_1",
+    title: "Sakura Cherry Blossom",
+    category: "zen",
+    tags: ["sakura", "cherry", "flower", "spring", "zen"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=sakurazen",
+    animationStyle: "feather-sway"
+  },
+  {
+    id: "stk_zen_2",
+    title: "Glowing Magic Lotus",
+    category: "zen",
+    tags: ["lotus", "glow", "meditation", "water"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=magiclotus",
+    animationStyle: "glow"
+  },
+  {
+    id: "stk_zen_3",
+    title: "Crescent Moon & Stars",
+    category: "zen",
+    tags: ["moon", "night", "stars", "sleep", "calm"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=moonnight",
+    animationStyle: "feather-float"
+  },
+  {
+    id: "stk_zen_4",
+    title: "Golden Sun Ray",
+    category: "zen",
+    tags: ["sun", "morning", "day", "warmth"],
+    url: "https://api.dicebear.com/7.x/bottts/svg?seed=goldsun",
+    animationStyle: "gold"
+  }
+];
+
+app.get("/api/gifs/search", (req: Request, res: Response) => {
+  const query = ((req.query.q as string) || "").toLowerCase().trim();
+  const category = (req.query.category as string) || "all";
+
+  let results = COMPREHENSIVE_GIFS;
+
+  if (category !== "all") {
+    results = results.filter((g) => g.category === category);
   }
 
-  const filtered = defaultGifs.filter((g) =>
-    g.title.toLowerCase().includes(query.toLowerCase())
-  );
+  if (query) {
+    results = results.filter(
+      (g) =>
+        g.title.toLowerCase().includes(query) ||
+        (g.tags && g.tags.some((t) => t.toLowerCase().includes(query)))
+    );
+  }
 
-  return res.json({ gifs: filtered.length > 0 ? filtered : defaultGifs });
+  return res.json({ gifs: results });
+});
+
+// 16b. Stickers Endpoint
+app.get("/api/stickers", (req: Request, res: Response) => {
+  const query = ((req.query.q as string) || "").toLowerCase().trim();
+  const category = (req.query.category as string) || "all";
+
+  let results = COMPREHENSIVE_STICKERS;
+
+  if (category !== "all") {
+    results = results.filter((s) => s.category === category);
+  }
+
+  if (query) {
+    results = results.filter(
+      (s) =>
+        s.title.toLowerCase().includes(query) ||
+        s.tags.some((t) => t.toLowerCase().includes(query))
+    );
+  }
+
+  return res.json({
+    stickers: results,
+    categories: [
+      { id: "all", label: "✨ All Stickers", count: COMPREHENSIVE_STICKERS.length },
+      { id: "plumes", label: "🪶 Plumes & Feathers", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "plumes").length },
+      { id: "3d", label: "💎 3D Emojis & Gems", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "3d").length },
+      { id: "cyber", label: "⚡ Cyber & Neon", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "cyber").length },
+      { id: "cute", label: "🐱 Cute Kawaii", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "cute").length },
+      { id: "zen", label: "🌸 Nature & Zen", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "zen").length }
+    ]
+  });
 });
 
 // 17. Voice & Video Calls Signaling
