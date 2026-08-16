@@ -597,13 +597,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
       />
       
       {/* Header */}
-      <div className="p-3 px-4 border-b border-blue-950/70 bg-[#09112a]/90 backdrop-blur-xl flex items-center justify-between z-10 shadow-md">
+      <div className="p-3 px-4 border-b border-blue-950/70 bg-[#09112a]/90 backdrop-blur-xl flex items-center justify-between z-10 shadow-md shrink-0">
         <div className="flex items-center gap-2 sm:gap-3">
           {onBackMobile && (
             <button
               onClick={onBackMobile}
-              className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-blue-900/40 transition-colors"
-              title="Back to chats"
+              className="p-1.5 -ml-1 rounded-xl text-slate-300 hover:text-white hover:bg-blue-900/40 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+              title="Retour aux discussions"
             >
               <ArrowLeft className="w-5 h-5 text-blue-400" />
             </button>
@@ -742,7 +742,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-900/30 relative"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-blue-900/30 relative"
       >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
@@ -1379,7 +1379,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <span>You cannot send messages to this contact.</span>
         </div>
       ) : (
-        <div className="p-2 sm:p-3 bg-[#050814]/95 border-t border-slate-800/80 backdrop-blur-md shadow-2xl relative">
+        <div className="shrink-0 z-20 sticky bottom-0 p-2 sm:p-3 bg-[#050814]/95 border-t border-slate-800/80 backdrop-blur-md shadow-2xl relative w-full">
           {/* Plus Actions Popup Menu */}
           {showPlusMenu && (
             <div className="absolute bottom-full right-4 sm:right-12 mb-2 w-56 sm:w-64 bg-[#0d1326] border border-blue-800/60 rounded-3xl p-2 shadow-2xl text-slate-200 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-xl">
@@ -1429,18 +1429,18 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   </div>
                 </button>
 
-                {conversation.type === "group" && isGroupAdmin && (
+                {conversation.type === "group" && (
                   <button
                     onClick={() => {
                       setShowPlusMenu(false);
                       setShowCreatePollModal(true);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-blue-900/30 text-blue-300 text-xs font-bold transition-colors text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-cyan-950/40 text-cyan-300 text-xs font-bold transition-colors text-left"
                   >
                     <BarChart2 className="w-4 h-4 text-cyan-400" />
                     <div className="flex flex-col">
-                      <span>Créer un Sondage</span>
-                      <span className="text-[10px] text-slate-400 font-normal">Votes interactifs</span>
+                      <span>Créer un Sondage & Vote</span>
+                      <span className="text-[10px] text-cyan-200/60 font-normal">Sondage interactif pour le groupe</span>
                     </div>
                   </button>
                 )}

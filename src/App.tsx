@@ -827,7 +827,10 @@ export default function App() {
             onStartCall={handleStartCall}
             onOpenGroupSettings={() => setGroupModalState({ open: true, mode: "manage" })}
             onSelectUserProfile={(user) => setSelectedUserProfile(user)}
-            onBackMobile={() => setMobileShowChat(false)}
+            onBackMobile={() => {
+              setMobileShowChat(false);
+              setActiveConversationId(null);
+            }}
             onDeleteConversation={handleDeleteConversation}
             onBlockUser={handleBlockUser}
           />
