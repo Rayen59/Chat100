@@ -33,25 +33,20 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({
   const otherName = call.callerId === currentUser.id ? call.targetName : call.callerName;
   const otherAvatar = call.callerId === currentUser.id ? "" : call.callerAvatar;
 
-  // Local camera and microphone stream initialization
+  // Local camera stream initialization for video calls
   useEffect(() => {
     let stream: MediaStream | null = null;
-    
-    // طلب الصوت دائماً، والفيديو فقط إذا كانت مكالمة فيديو وليست مغلقة
-    navigator.mediaDevices
-      .getUserMedia({ 
-        video: call.type === "video" && !isVideoOff, 
-        audio: true 
-      })
-      .then((s) => {
-        stream = s;
-        if (localVideoRef.current && call.type === "video") {
-          localVideoRef.current.srcObject = s;
-        }
-      })
-      .catch((err) => {
-        console.error("Error accessing media devices:", err);
-      });
+    if (call.type === "video" && !isVideoOff) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((s) => {
+          stream = s;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = s;
+          }
+        })
+        .catch(() => {});
+    }
 
     const timer = setInterval(() => {
       setCallDurationSeconds((prev) => prev + 1);
