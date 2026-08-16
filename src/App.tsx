@@ -772,7 +772,7 @@ export default function App() {
     : undefined;
 
   return (
-    <div className="flex h-screen w-screen bg-[#050814] text-slate-100 overflow-hidden font-sans">
+    <div className="fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-full bg-[#050814] text-slate-100 overflow-hidden font-sans select-none">
       
       {/* Sidebar Navigation */}
       <div className={mobileShowChat ? "hidden md:flex shrink-0 h-full" : "flex w-full md:w-80 lg:w-96 shrink-0 h-full"}>

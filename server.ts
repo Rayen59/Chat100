@@ -469,7 +469,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
     return res.status(403).json({ error: "You cannot send messages to this conversation because you are not a member." });
   }
 
-  // 1. If DM conversation, check if recipient has blocked sender
+  // 1. If DM conversation, check if recipient has blocked sender or sender has blocked recipient
   if (conv.type === "dm") {
     const otherUserId = conv.participants.find((id) => id !== senderId);
     if (otherUserId) {
@@ -478,7 +478,7 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
         return res.status(403).json({ error: "You cannot message this user because you have been blocked." });
       }
       if (sender.blockedUserIds?.includes(otherUserId)) {
-        return res.status(400).json({ error: "You cannot send messages to a user you have blocked. Unblock them first." });
+        return res.status(403).json({ error: "You cannot send messages to a user you have blocked. Please unblock them first." });
       }
     }
   }
@@ -503,11 +503,13 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
         return res.status(403).json({ error: "You have been restricted to read-only mode by a group admin." });
       }
 
-      // If poll creation, only admins can create polls
+      // If poll creation, strictly enforce ONLY group admins can create polls and votes
       if (type === "poll" && !isAdmin) {
         return res.status(403).json({ error: "Only group admins can create polls and votes." });
       }
     }
+  } else if (type === "poll") {
+    return res.status(400).json({ error: "Polls can only be created in group chats." });
   }
 
   let formattedPoll = undefined;

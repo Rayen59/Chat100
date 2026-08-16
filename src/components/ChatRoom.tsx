@@ -289,6 +289,25 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     }
   }, [conversation.id]);
 
+  // Mobile virtual keyboard viewport height and scroll auto-adjustment
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const handleViewportChange = () => {
+      if (document.activeElement === textareaRef.current) {
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 60);
+      }
+    };
+    vv.addEventListener("resize", handleViewportChange);
+    vv.addEventListener("scroll", handleViewportChange);
+    return () => {
+      vv.removeEventListener("resize", handleViewportChange);
+      vv.removeEventListener("scroll", handleViewportChange);
+    };
+  }, []);
+
   // Handle scrolling detection
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
@@ -324,6 +343,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
   // Handlers for sending rich GIFs & Stickers
   const handleSendGif = (gif: GifItem) => {
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
     onSendMessage({
       type: "gif",
       mediaUrl: gif.url,
@@ -337,6 +359,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   };
 
   const handleSendSticker = (sticker: StickerItem) => {
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
     onSendMessage({
       type: "sticker",
       mediaUrl: sticker.url,
@@ -352,6 +377,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const handleSend = (e?: React.MouseEvent | React.TouchEvent | React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputText.trim()) return;
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
 
     onSendMessage({
       text: inputText.trim(),
@@ -406,6 +434,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   };
 
   const handleCreatePoll = () => {
+    if (!isGroupAdmin) {
+      alert("Only group administrators can create polls and votes.");
+      return;
+    }
     const trimmedQ = pollQuestion.trim();
     const validOptions = pollOptions.map((o) => o.trim()).filter((o) => o.length > 0);
     if (!trimmedQ || validOptions.length < 2) return;
@@ -438,6 +470,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
     const items = e.clipboardData?.items;
     if (items) {
       for (let i = 0; i < items.length; i++) {
@@ -497,6 +532,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
   // Media Attachment Upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -523,6 +561,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
 
   // Voice Recording
   const startRecording = async () => {
+    if (isOtherUserBlocked || isMeBlockedByOther || isRestrictedInGroup || isAnnouncementOnly) {
+      return;
+    }
     setIsRecording(true);
     setRecordingSeconds(0);
     recordingSecondsRef.current = 0;
@@ -1488,27 +1529,27 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <span>Broadcast Channel: Only group admins can send messages.</span>
         </div>
       ) : isOtherUserBlocked ? (
-        <div className="p-3 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-between px-4 text-xs text-slate-300">
+        <div className="p-3 sm:p-3.5 bg-[#09112a] border-t border-amber-900/50 flex items-center justify-between px-4 text-xs text-slate-300">
           <div className="flex items-center gap-2">
             <UserX className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>You have blocked this contact.</span>
+            <span>You have blocked this contact. Unblock to send messages.</span>
           </div>
           {onBlockUser && otherUserId && (
             <button
               onClick={() => onBlockUser(otherUserId)}
-              className="px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl text-xs font-bold border border-blue-500/30 transition-colors"
+              className="px-3.5 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-xl text-xs font-bold border border-blue-500/30 transition-colors cursor-pointer shrink-0"
             >
               Unblock User
             </button>
           )}
         </div>
       ) : isMeBlockedByOther ? (
-        <div className="p-3.5 bg-[#09112a] border-t border-blue-950/70 flex items-center justify-center gap-2 text-slate-400 text-xs font-medium">
-          <Lock className="w-4 h-4 text-slate-500 shrink-0" />
-          <span>You cannot send messages to this contact.</span>
+        <div className="p-3.5 bg-[#09112a] border-t border-rose-950/70 flex items-center justify-center gap-2 text-rose-300/90 text-xs font-medium">
+          <Lock className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>You cannot send messages to this contact because they have blocked you.</span>
         </div>
       ) : (
-        <div className="shrink-0 z-20 sticky bottom-0 p-2 sm:p-3 bg-[#050814]/95 border-t border-slate-800/80 backdrop-blur-md shadow-2xl relative w-full">
+        <div className="shrink-0 z-20 sticky bottom-0 p-2 sm:p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-[#050814]/95 border-t border-slate-800/80 backdrop-blur-md shadow-2xl relative w-full">
           {/* Plus Actions Popup Menu */}
           {showPlusMenu && (
             <div className="absolute bottom-full right-4 sm:right-12 mb-2 w-56 sm:w-64 bg-[#0d1326] border border-blue-800/60 rounded-3xl p-2 shadow-2xl text-slate-200 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 backdrop-blur-xl">
@@ -1558,7 +1599,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   </div>
                 </button>
 
-                {conversation.type === "group" && (
+                {conversation.type === "group" && isGroupAdmin && (
                   <button
                     onClick={() => {
                       setShowPlusMenu(false);
@@ -1569,7 +1610,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                     <BarChart2 className="w-4 h-4 text-cyan-400" />
                     <div className="flex flex-col">
                       <span>Create Poll & Vote</span>
-                      <span className="text-[10px] text-cyan-200/60 font-normal">Interactive group poll</span>
+                      <span className="text-[10px] text-cyan-200/60 font-normal">Admin interactive group poll</span>
                     </div>
                   </button>
                 )}
@@ -1641,6 +1682,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   rows={1}
                   placeholder="Type a message..."
                   value={inputText}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                    }, 120);
+                  }}
                   onChange={(e) => {
                     setInputText(e.target.value);
                     e.target.style.height = "auto";
