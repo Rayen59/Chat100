@@ -53,7 +53,11 @@ import {
   ZoomOut,
   RotateCw,
   Maximize2,
-  CheckCircle
+  CheckCircle,
+  Sliders,
+  Move,
+  Hand,
+  RefreshCw
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
@@ -150,7 +154,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [unreadBelowCount, setUnreadBelowCount] = useState(0);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
 
-  // Photo / Media Lightbox Viewer State
+  // Photo / Media Lightbox Viewer State with Continuous Manual Zoom & Pan
   const [viewingPhoto, setViewingPhoto] = useState<{
     url: string;
     caption?: string;
@@ -158,8 +162,122 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
     timestamp?: number;
   } | null>(null);
   const [photoZoom, setPhotoZoom] = useState<number>(1);
+  const [photoPan, setPhotoPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [photoRotation, setPhotoRotation] = useState<number>(0);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState<boolean>(false);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [touchPinchDist, setTouchPinchDist] = useState<number | null>(null);
+  const [touchInitialZoom, setTouchInitialZoom] = useState<number>(1);
   const [savedPhotoToast, setSavedPhotoToast] = useState(false);
+
+  // Manual Photo Zoom & Pan Helpers
+  const handleResetPhotoView = () => {
+    setPhotoZoom(1);
+    setPhotoPan({ x: 0, y: 0 });
+    setPhotoRotation(0);
+  };
+
+  const handlePhotoWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = -e.deltaY * 0.0018;
+    setPhotoZoom((prev) => {
+      const next = Math.min(5, Math.max(0.5, +(prev + delta).toFixed(2)));
+      if (next <= 1 && prev > 1) {
+        setPhotoPan({ x: 0, y: 0 });
+      }
+      return next;
+    });
+  };
+
+  const handlePhotoMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPhoto(true);
+    setDragStartPos({
+      x: e.clientX - photoPan.x,
+      y: e.clientY - photoPan.y
+    });
+  };
+
+  const handlePhotoMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingPhoto) return;
+    setPhotoPan({
+      x: e.clientX - dragStartPos.x,
+      y: e.clientY - dragStartPos.y
+    });
+  };
+
+  const handlePhotoMouseUp = () => {
+    setIsDraggingPhoto(false);
+  };
+
+  const handlePhotoTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setTouchPinchDist(dist);
+      setTouchInitialZoom(photoZoom);
+    } else if (e.touches.length === 1) {
+      setIsDraggingPhoto(true);
+      setDragStartPos({
+        x: e.touches[0].clientX - photoPan.x,
+        y: e.touches[0].clientY - photoPan.y
+      });
+    }
+  };
+
+  const handlePhotoTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchPinchDist !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const ratio = dist / touchPinchDist;
+      const nextZoom = Math.min(5, Math.max(0.5, +(touchInitialZoom * ratio).toFixed(2)));
+      setPhotoZoom(nextZoom);
+      if (nextZoom <= 1) {
+        setPhotoPan({ x: 0, y: 0 });
+      }
+    } else if (e.touches.length === 1 && isDraggingPhoto) {
+      setPhotoPan({
+        x: e.touches[0].clientX - dragStartPos.x,
+        y: e.touches[0].clientY - dragStartPos.y
+      });
+    }
+  };
+
+  const handlePhotoTouchEnd = () => {
+    setIsDraggingPhoto(false);
+    setTouchPinchDist(null);
+  };
+
+  const handlePhotoDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (photoZoom > 1.2) {
+      setPhotoZoom(1);
+      setPhotoPan({ x: 0, y: 0 });
+    } else {
+      setPhotoZoom(2.2);
+    }
+  };
+
+  // Keyboard shortcut listener for manual image viewer (Escape to exit, 0 / R to reset)
+  useEffect(() => {
+    if (!viewingPhoto) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setViewingPhoto(null);
+        handleResetPhotoView();
+      } else if (e.key === "0" || e.key.toLowerCase() === "r") {
+        handleResetPhotoView();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewingPhoto]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -1119,14 +1237,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       {msg.type === "image" && msg.mediaUrl && (
                         <div
                           onClick={() => {
+                            handleResetPhotoView();
                             setViewingPhoto({
                               url: msg.mediaUrl!,
                               caption: msg.text,
                               senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "Photo")),
                               timestamp: msg.timestamp
                             });
-                            setPhotoZoom(1);
-                            setPhotoRotation(0);
                           }}
                           className="rounded-2xl overflow-hidden my-1 bg-black/30 relative group/img cursor-pointer transition-all hover:ring-2 hover:ring-cyan-400/50 shadow-md"
                           title="Click to view full screen and save photo to gallery"
@@ -1208,14 +1325,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       {msg.type === "gif" && msg.mediaUrl && (
                         <div
                           onClick={() => {
+                            handleResetPhotoView();
                             setViewingPhoto({
                               url: msg.mediaUrl!,
                               caption: msg.text || "Animated GIF",
                               senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "GIF")),
                               timestamp: msg.timestamp
                             });
-                            setPhotoZoom(1);
-                            setPhotoRotation(0);
                           }}
                           className="rounded-xl overflow-hidden my-1 bg-black/20 relative group/gif cursor-pointer hover:ring-2 hover:ring-cyan-400/40"
                           title="Click to enlarge and save GIF"
@@ -1234,14 +1350,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                       {msg.type === "sticker" && msg.mediaUrl && (
                         <div
                           onClick={() => {
+                            handleResetPhotoView();
                             setViewingPhoto({
                               url: msg.mediaUrl!,
                               caption: msg.text || "Animated Sticker",
                               senderName: msg.senderName || (isMe ? currentUser.name : (otherUser?.name || "Sticker")),
                               timestamp: msg.timestamp
                             });
-                            setPhotoZoom(1);
-                            setPhotoRotation(0);
                           }}
                           className="my-1.5 flex flex-col items-center group/stk relative py-1 cursor-pointer"
                           title="Click to view and save sticker to gallery"
@@ -2255,29 +2370,28 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
         </div>
       )}
 
-      {/* FULL-SCREEN PHOTO & MEDIA VIEWER (LIGHTBOX) */}
+      {/* FULL-SCREEN PHOTO & MEDIA VIEWER (MANUAL ZOOM & PAN LIGHTBOX) */}
       {viewingPhoto && (
-        <div className="fixed inset-0 z-50 bg-[#02040a]/95 backdrop-blur-2xl flex flex-col justify-between animate-in fade-in duration-200 select-none">
+        <div className="fixed inset-0 z-50 bg-[#02040a]/95 backdrop-blur-2xl flex flex-col justify-between animate-in fade-in duration-200 select-none overflow-hidden touch-none">
           {/* Top Bar Header */}
-          <div className="p-3 sm:p-4 px-4 sm:px-6 bg-gradient-to-b from-black/80 to-transparent flex items-center justify-between z-20 shrink-0">
+          <div className="p-3 sm:p-4 px-4 sm:px-6 bg-gradient-to-b from-black/90 via-black/60 to-transparent flex items-center justify-between z-20 shrink-0 gap-2">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => {
                   setViewingPhoto(null);
-                  setPhotoZoom(1);
-                  setPhotoRotation(0);
+                  handleResetPhotoView();
                 }}
-                className="p-2 sm:px-3 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
+                className="p-2 sm:px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md border border-white/10"
                 title="Exit / Close (Esc)"
               >
-                <ArrowLeft className="w-5 h-5 text-cyan-400" />
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold hidden sm:inline">Back to chat</span>
               </button>
 
-              <div className="flex flex-col">
-                <span className="text-white text-sm font-bold flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-cyan-400" />
-                  {viewingPhoto.senderName || "Chat Media"}
+              <div className="flex flex-col min-w-0">
+                <span className="text-white text-sm font-bold flex items-center gap-1.5 truncate">
+                  <ImageIcon className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span className="truncate">{viewingPhoto.senderName || "Chat Media"}</span>
                 </span>
                 {viewingPhoto.timestamp && (
                   <span className="text-slate-400 text-[11px]">
@@ -2287,45 +2401,48 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </div>
             </div>
 
-            {/* Quick Actions in Header */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Zoom Out */}
+            {/* Quick Manual Zoom Controls & Actions in Header */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Header Manual Zoom Slider (visible on sm+ screens) */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 backdrop-blur-md">
+                <Sliders className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="text-[11px] font-semibold text-slate-300">Manual Zoom</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="4.5"
+                  step="0.05"
+                  value={photoZoom}
+                  onChange={(e) => {
+                    const next = parseFloat(e.target.value);
+                    setPhotoZoom(next);
+                    if (next <= 1) setPhotoPan({ x: 0, y: 0 });
+                  }}
+                  className="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  title="Drag slider for manual zoom"
+                />
+                <span className="text-xs font-mono font-bold text-cyan-300 w-10 text-right">
+                  {Math.round(photoZoom * 100)}%
+                </span>
+              </div>
+
+              {/* Reset View Button */}
               <button
-                onClick={() => setPhotoZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
-                title="Zoom out (-)"
+                onClick={handleResetPhotoView}
+                className="px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border border-white/10"
+                title="Reset zoom & center image"
               >
-                <ZoomOut className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5 text-slate-300" />
+                <span className="hidden sm:inline">Reset</span>
               </button>
 
-              {/* Reset Zoom */}
-              <button
-                onClick={() => {
-                  setPhotoZoom(1);
-                  setPhotoRotation(0);
-                }}
-                className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold font-mono transition-colors"
-                title="Reset zoom (100%)"
-              >
-                {Math.round(photoZoom * 100)}%
-              </button>
-
-              {/* Zoom In */}
-              <button
-                onClick={() => setPhotoZoom((z) => Math.min(3.5, +(z + 0.25).toFixed(2)))}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
-                title="Zoom in (+)"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-
-              {/* Rotate */}
+              {/* Rotate 90° */}
               <button
                 onClick={() => setPhotoRotation((r) => (r + 90) % 360)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 transition-colors cursor-pointer border border-white/10"
                 title="Rotate 90°"
               >
-                <RotateCw className="w-4 h-4" />
+                <RotateCw className="w-4 h-4 text-cyan-400" />
               </button>
 
               {/* Primary Save Button in Header */}
@@ -2342,10 +2459,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               <button
                 onClick={() => {
                   setViewingPhoto(null);
-                  setPhotoZoom(1);
-                  setPhotoRotation(0);
+                  handleResetPhotoView();
                 }}
-                className="p-2 rounded-full bg-white/10 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer"
+                className="p-2 rounded-full bg-white/10 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer border border-white/10"
                 title="Close photo viewer"
               >
                 <X className="w-5 h-5" />
@@ -2353,47 +2469,125 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             </div>
           </div>
 
-          {/* Central Canvas Viewport */}
+          {/* Central Interactive Canvas Viewport with Wheel, Drag & Touch Pinch Listeners */}
           <div
+            onWheel={handlePhotoWheel}
+            onMouseDown={handlePhotoMouseDown}
+            onMouseMove={handlePhotoMouseMove}
+            onMouseUp={handlePhotoMouseUp}
+            onMouseLeave={handlePhotoMouseUp}
+            onTouchStart={handlePhotoTouchStart}
+            onTouchMove={handlePhotoTouchMove}
+            onTouchEnd={handlePhotoTouchEnd}
             onClick={(e) => {
-              if (e.target === e.currentTarget) {
+              if (e.target === e.currentTarget && photoZoom <= 1 && photoPan.x === 0 && photoPan.y === 0) {
                 setViewingPhoto(null);
-                setPhotoZoom(1);
-                setPhotoRotation(0);
+                handleResetPhotoView();
               }
             }}
-            className="flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden relative cursor-zoom-out"
+            className={`flex-1 flex items-center justify-center p-2 sm:p-6 overflow-hidden relative ${
+              isDraggingPhoto ? "cursor-grabbing" : "cursor-grab"
+            }`}
           >
+            {/* Interactive Image Container */}
             <div
-              className="relative max-w-full max-h-full flex items-center justify-center cursor-default"
-              onClick={(e) => e.stopPropagation()}
-              onDoubleClick={() => setPhotoZoom((z) => (z > 1 ? 1 : 2))}
+              onDoubleClick={handlePhotoDoubleClick}
+              style={{
+                transform: `translate3d(${photoPan.x}px, ${photoPan.y}px, 0px) scale(${photoZoom}) rotate(${photoRotation}deg)`,
+                transition: isDraggingPhoto ? "none" : "transform 0.15s cubic-bezier(0.2, 0.8, 0.4, 1)"
+              }}
+              className="relative max-w-full max-h-full flex items-center justify-center will-change-transform select-none"
             >
               <img
                 src={viewingPhoto.url}
                 alt="Photo preview"
-                style={{
-                  transform: `scale(${photoZoom}) rotate(${photoRotation}deg)`,
-                  transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-                }}
-                className="max-w-[92vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)]"
+                draggable={false}
+                className="max-w-[92vw] max-h-[68vh] object-contain rounded-2xl shadow-2xl drop-shadow-[0_25px_60px_rgba(0,0,0,0.95)] pointer-events-none"
               />
+            </div>
+
+            {/* Floating Subtle Manual Zoom Gesture Hint */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-black/65 backdrop-blur-md border border-white/10 text-[11px] text-slate-300 font-medium flex items-center gap-2 shadow-xl pointer-events-none animate-in fade-in duration-300">
+              <Hand className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Scroll wheel or pinch to zoom • Drag to pan • Double-click to toggle</span>
             </div>
           </div>
 
-          {/* Bottom Bar Footer with Caption & Action Controls */}
-          <div className="p-3 sm:p-5 bg-gradient-to-t from-black/90 via-black/70 to-transparent flex flex-col items-center gap-3 z-20 shrink-0">
+          {/* Bottom Bar Footer with Manual Zoom Slider, Presets & Actions */}
+          <div className="p-3 sm:p-4 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col items-center gap-3 z-20 shrink-0">
             {viewingPhoto.caption && (
-              <p className="text-slate-200 text-xs sm:text-sm font-medium bg-black/60 backdrop-blur-md px-4 py-2 rounded-2xl max-w-xl text-center border border-white/10 shadow-lg">
+              <p className="text-slate-200 text-xs sm:text-sm font-medium bg-black/70 backdrop-blur-md px-4 py-2 rounded-2xl max-w-xl text-center border border-white/10 shadow-lg">
                 {viewingPhoto.caption}
               </p>
             )}
 
+            {/* Continuous Manual Zoom Range Control Bar */}
+            <div className="w-full max-w-xl px-4 py-2.5 rounded-2xl bg-black/70 backdrop-blur-xl border border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl">
+              {/* Manual Zoom Slider with Live Percentage */}
+              <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200 shrink-0">
+                  <Sliders className="w-4 h-4 text-cyan-400" />
+                  <span>Manual Zoom:</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="4.5"
+                  step="0.05"
+                  value={photoZoom}
+                  onChange={(e) => {
+                    const next = parseFloat(e.target.value);
+                    setPhotoZoom(next);
+                    if (next <= 1) setPhotoPan({ x: 0, y: 0 });
+                  }}
+                  className="flex-1 h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                />
+                <span className="text-xs font-mono font-extrabold text-cyan-400 min-w-[45px] text-right">
+                  {Math.round(photoZoom * 100)}%
+                </span>
+              </div>
+
+              {/* Preset Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {[
+                  { label: "Fit", zoom: 1 },
+                  { label: "150%", zoom: 1.5 },
+                  { label: "200%", zoom: 2 },
+                  { label: "300%", zoom: 3 }
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => {
+                      setPhotoZoom(preset.zoom);
+                      if (preset.zoom === 1) setPhotoPan({ x: 0, y: 0 });
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                      Math.abs(photoZoom - preset.zoom) < 0.05
+                        ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30"
+                        : "bg-white/10 hover:bg-white/20 text-slate-300"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+
+                <button
+                  onClick={handleResetPhotoView}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Reset zoom and center position"
+                >
+                  <RefreshCw className="w-3 h-3 text-cyan-300" />
+                  <span>Reset</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Main Action Buttons */}
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              {/* Save / Download to Gallery Main Button */}
+              {/* Save to Gallery */}
               <button
                 onClick={() => handleSavePhotoToGallery(viewingPhoto.url, viewingPhoto.caption)}
-                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer ring-2 ring-cyan-400/30"
+                className="px-5 py-2 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer ring-2 ring-cyan-400/30"
               >
                 <Download className="w-4 h-4" />
                 <span>Save to gallery</span>
@@ -2403,10 +2597,9 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               <button
                 onClick={() => {
                   setViewingPhoto(null);
-                  setPhotoZoom(1);
-                  setPhotoRotation(0);
+                  handleResetPhotoView();
                 }}
-                className="px-4 py-2.5 rounded-full bg-white/15 hover:bg-white/25 text-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 text-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-white/10"
               >
                 <X className="w-4 h-4" />
                 <span>Exit</span>
