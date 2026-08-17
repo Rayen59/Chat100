@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { User, Message, Conversation, Group, ActiveCall, ReplyToMessage } from "./types";
+import { User, Message, Conversation, Group, ActiveCall, ReplyToMessage, ChatRequest } from "./types";
 import { AuthModal } from "./components/AuthModal";
 import { Sidebar } from "./components/Sidebar";
 import { ChatRoom } from "./components/ChatRoom";
@@ -22,9 +22,10 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [chatRequests, setChatRequests] = useState<ChatRequest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   
-  const [sidebarTab, setSidebarTab] = useState<"chats" | "people" | "groups">("chats");
+  const [sidebarTab, setSidebarTab] = useState<"chats" | "people" | "groups" | "requests">("chats");
   const [viewMode, setViewMode] = useState<"chat" | "analytics">("chat");
   const [mobileShowChat, setMobileShowChat] = useState<boolean>(false);
 
@@ -74,15 +75,23 @@ export default function App() {
   // Load initial dataset
   const fetchData = async () => {
     try {
-      const [usersRes, convsRes, groupsRes] = await Promise.all([
+      const [usersRes, convsRes, groupsRes, requestsRes] = await Promise.all([
         fetch("/api/users"),
         currentUser ? fetch(`/api/conversations?userId=${currentUser.id}`) : Promise.resolve(null),
-        currentUser ? fetch(`/api/groups?userId=${currentUser.id}`) : fetch("/api/groups")
+        currentUser ? fetch(`/api/groups?userId=${currentUser.id}`) : fetch("/api/groups"),
+        currentUser ? fetch(`/api/requests?userId=${currentUser.id}`) : Promise.resolve(null)
       ]);
 
       if (usersRes && usersRes.ok) {
         const usersData = await usersRes.json();
         setAllUsers(usersData.users || []);
+        if (currentUser) {
+          const freshMe = (usersData.users || []).find((u: User) => u.id === currentUser.id);
+          if (freshMe) {
+            setCurrentUser(freshMe);
+            localStorage.setItem("wavegram_user", JSON.stringify(freshMe));
+          }
+        }
       }
 
       if (convsRes && convsRes.ok) {
@@ -98,6 +107,11 @@ export default function App() {
       if (groupsRes && groupsRes.ok) {
         const groupsData = await groupsRes.json();
         if (groupsData.groups) setGroups(groupsData.groups);
+      }
+
+      if (requestsRes && requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        if (requestsData.all) setChatRequests(requestsData.all);
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -309,6 +323,71 @@ export default function App() {
       }
     });
 
+    // Instant update when a user updates their profile & privacy settings
+    eventSource.addEventListener("user_updated", (e: any) => {
+      const updatedUser: User = JSON.parse(e.data);
+      setAllUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+      if (currentUser?.id === updatedUser.id) {
+        setCurrentUser(updatedUser);
+        localStorage.setItem("wavegram_user", JSON.stringify(updatedUser));
+      }
+    });
+
+    // Chat requests / private invitations
+    eventSource.addEventListener("new_chat_request", (e: any) => {
+      const newReq: ChatRequest = JSON.parse(e.data);
+      setChatRequests((prev) => {
+        if (prev.some((r) => r.id === newReq.id)) return prev;
+        return [newReq, ...prev];
+      });
+      if (newReq.toUserId === currentUser.id) {
+        playNotificationSound();
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "message",
+          title: "New Chat Invitation",
+          senderName: newReq.fromUserName || "Private Member",
+          senderAvatar: newReq.fromUserAvatar,
+          text: newReq.message ? `Invitation: "${newReq.message}"` : "Wants to start a conversation with you",
+          createdAt: newReq.createdAt
+        };
+        setNotifications((prev) => [...prev, notif]);
+      }
+    });
+
+    eventSource.addEventListener("chat_request_accepted", (e: any) => {
+      const data: { request: ChatRequest; conversation: Conversation } = JSON.parse(e.data);
+      setChatRequests((prev) =>
+        prev.map((r) => (r.id === data.request.id ? data.request : r))
+      );
+      if (data.conversation) {
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === data.conversation.id)) return prev;
+          return [data.conversation, ...prev];
+        });
+      }
+      if (data.request.fromUserId === currentUser.id) {
+        playNotificationSound();
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "system",
+          title: "Invitation Accepted!",
+          senderName: data.request.toUserName || "Member",
+          text: "Your chat invitation was accepted! The chat is now open in your list.",
+          conversationId: data.conversation?.id,
+          createdAt: new Date().toISOString()
+        };
+        setNotifications((prev) => [...prev, notif]);
+      }
+    });
+
+    eventSource.addEventListener("chat_request_declined", (e: any) => {
+      const data: { request: ChatRequest } = JSON.parse(e.data);
+      setChatRequests((prev) =>
+        prev.map((r) => (r.id === data.request.id ? data.request : r))
+      );
+    });
+
     return () => {
       eventSource.close();
     };
@@ -362,9 +441,102 @@ export default function App() {
         setViewMode("chat");
         setMobileShowChat(true);
         setSelectedUserProfile(null);
+      } else if (data.needsRequest) {
+        const target = allUsers.find((u) => u.id === targetUserId);
+        if (target) setSelectedUserProfile(target);
       }
     } catch (err) {
       console.error("Start DM error:", err);
+    }
+  };
+
+  // Chat Request Handlers
+  const handleSendChatRequest = async (targetUserId: string, message?: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch("/api/requests/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromUserId: currentUser.id,
+          toUserId: targetUserId,
+          message
+        })
+      });
+      const data = await res.json();
+      if (data.request) {
+        setChatRequests((prev) => {
+          const filtered = prev.filter((r) => r.id !== data.request.id);
+          return [data.request, ...filtered];
+        });
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "system",
+          title: "Invitation Sent",
+          senderName: "Wavegram",
+          text: "Your chat invitation has been sent.",
+          createdAt: new Date().toISOString()
+        };
+        setNotifications((prev) => [...prev, notif]);
+      }
+    } catch (err) {
+      console.error("Send request error:", err);
+    }
+  };
+
+  const handleAcceptChatRequest = async (requestId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch("/api/requests/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          userId: currentUser.id,
+          action: "accept"
+        })
+      });
+      const data = await res.json();
+      if (data.request) {
+        setChatRequests((prev) =>
+          prev.map((r) => (r.id === data.request.id ? data.request : r))
+        );
+      }
+      if (data.conversation) {
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === data.conversation.id)) return prev;
+          return [data.conversation, ...prev];
+        });
+        setActiveConversationId(data.conversation.id);
+        setSidebarTab("chats");
+        setViewMode("chat");
+        setMobileShowChat(true);
+      }
+    } catch (err) {
+      console.error("Accept request error:", err);
+    }
+  };
+
+  const handleDeclineChatRequest = async (requestId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch("/api/requests/respond", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          userId: currentUser.id,
+          action: "decline"
+        })
+      });
+      const data = await res.json();
+      if (data.request) {
+        setChatRequests((prev) =>
+          prev.map((r) => (r.id === data.request.id ? data.request : r))
+        );
+      }
+    } catch (err) {
+      console.error("Decline request error:", err);
     }
   };
 
@@ -781,6 +953,7 @@ export default function App() {
           allUsers={allUsers}
           conversations={conversations}
           groups={groups}
+          chatRequests={chatRequests}
           activeConversationId={activeConversationId}
           activeTab={sidebarTab}
           setActiveTab={setSidebarTab}
@@ -791,6 +964,8 @@ export default function App() {
           }}
           onStartDMWithUser={handleStartDMWithUser}
           onSelectUserProfile={(user) => setSelectedUserProfile(user)}
+          onAcceptRequest={handleAcceptChatRequest}
+          onDeclineRequest={handleDeclineChatRequest}
           onCreateGroupClick={() => setGroupModalState({ open: true, mode: "create" })}
           onJoinGroupClick={() => setGroupModalState({ open: true, mode: "join" })}
           onOpenAnalytics={() => {
@@ -882,10 +1057,13 @@ export default function App() {
         <UserProfileModal
           user={selectedUserProfile}
           currentUser={currentUser}
+          conversations={conversations}
+          chatRequests={chatRequests}
           onClose={() => setSelectedUserProfile(null)}
           onStartDM={(targetUserId) => {
             handleStartDMWithUser(targetUserId);
           }}
+          onSendChatRequest={handleSendChatRequest}
           onBlockUser={handleBlockUser}
         />
       )}

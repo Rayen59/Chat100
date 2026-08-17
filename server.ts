@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { User, Message, Group, Conversation, ActiveCall, UserAnalytics } from "./src/types";
+import { User, Message, Group, Conversation, ActiveCall, UserAnalytics, ChatRequest } from "./src/types";
 
 const app = express();
 const PORT = 3000;
@@ -19,6 +19,7 @@ interface DataStore {
   messages: Message[];
   groups: Group[];
   passwords: { [email: string]: string };
+  chatRequests: ChatRequest[];
 }
 
 let store: DataStore = {
@@ -26,7 +27,8 @@ let store: DataStore = {
   conversations: [],
   messages: [],
   groups: [],
-  passwords: {}
+  passwords: {},
+  chatRequests: []
 };
 
 function loadStore() {
@@ -34,6 +36,7 @@ function loadStore() {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, "utf-8");
       store = JSON.parse(data);
+      if (!store.chatRequests) store.chatRequests = [];
     } else {
       seedInitialData();
     }
@@ -256,7 +259,7 @@ app.post("/api/auth/login", (req: Request, res: Response) => {
 
 // 4. Update Profile
 app.post("/api/users/profile", (req: Request, res: Response) => {
-  const { userId, username, avatar, bio } = req.body;
+  const { userId, username, avatar, bio, isPrivate, hideEmail } = req.body;
   const user = store.users.find((u) => u.id === userId);
   if (!user) {
     return res.status(404).json({ error: "User not found." });
@@ -265,11 +268,161 @@ app.post("/api/users/profile", (req: Request, res: Response) => {
   if (username) user.username = username.trim();
   if (avatar) user.avatar = avatar;
   if (bio !== undefined) user.bio = bio;
+  if (isPrivate !== undefined) user.isPrivate = isPrivate;
+  if (hideEmail !== undefined) user.hideEmail = hideEmail;
 
   saveStore();
   broadcastEvent("user_updated", user);
 
   return res.json({ user });
+});
+
+// 4b. Chat Request Endpoints (Invitations for Private Profiles)
+app.get("/api/requests", (req: Request, res: Response) => {
+  const userId = req.query.userId as string;
+  if (!userId) return res.status(400).json({ error: "userId required" });
+
+  const incoming = (store.chatRequests || []).filter(
+    (r) => r.toUserId === userId && r.status === "pending"
+  );
+  const outgoing = (store.chatRequests || []).filter(
+    (r) => r.fromUserId === userId
+  );
+  return res.json({ incoming, outgoing, all: (store.chatRequests || []).filter((r) => r.toUserId === userId || r.fromUserId === userId) });
+});
+
+app.post("/api/requests/send", (req: Request, res: Response) => {
+  const { fromUserId, toUserId, message } = req.body;
+  if (!fromUserId || !toUserId) {
+    return res.status(400).json({ error: "Missing user IDs" });
+  }
+
+  const sender = store.users.find((u) => u.id === fromUserId);
+  const target = store.users.find((u) => u.id === toUserId);
+  if (!sender || !target) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (target.blockedUserIds?.includes(fromUserId)) {
+    return res.status(403).json({ error: "You cannot send a chat request to this user because you are blocked." });
+  }
+
+  // Check if they already have an existing conversation
+  let conv = store.conversations.find(
+    (c) =>
+      c.type === "dm" &&
+      c.participants.includes(fromUserId) &&
+      c.participants.includes(toUserId)
+  );
+  if (conv) {
+    return res.json({ success: true, conversation: conv, alreadyConnected: true });
+  }
+
+  if (!store.chatRequests) store.chatRequests = [];
+
+  // Check if there's already a pending request
+  let existingReq = store.chatRequests.find(
+    (r) => r.fromUserId === fromUserId && r.toUserId === toUserId && r.status === "pending"
+  );
+  if (existingReq) {
+    return res.json({ success: true, request: existingReq, alreadySent: true });
+  }
+
+  const newRequest: ChatRequest = {
+    id: "req_" + Math.random().toString(36).substring(2, 10),
+    fromUserId,
+    fromUserName: sender.username,
+    fromUserAvatar: sender.avatar,
+    toUserId,
+    toUserName: target.username,
+    toUserAvatar: target.avatar,
+    message: message?.trim() || "Hi! I would like to connect with you on Wavegram.",
+    status: "pending",
+    createdAt: new Date().toISOString()
+  };
+
+  store.chatRequests.push(newRequest);
+  saveStore();
+
+  broadcastEvent("new_chat_request", newRequest);
+
+  return res.json({ success: true, request: newRequest });
+});
+
+app.post("/api/requests/respond", (req: Request, res: Response) => {
+  const { requestId, action, userId } = req.body;
+  if (!requestId || !action) {
+    return res.status(400).json({ error: "Missing requestId or action" });
+  }
+
+  if (!store.chatRequests) store.chatRequests = [];
+  const reqItem = store.chatRequests.find((r) => r.id === requestId);
+  if (!reqItem) {
+    return res.status(404).json({ error: "Request not found" });
+  }
+
+  if (userId && reqItem.toUserId !== userId) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+
+  if (action === "accept") {
+    reqItem.status = "accepted";
+
+    // Find or create conversation
+    let conv = store.conversations.find(
+      (c) =>
+        c.type === "dm" &&
+        c.participants.includes(reqItem.fromUserId) &&
+        c.participants.includes(reqItem.toUserId)
+    );
+
+    const fromUser = store.users.find((u) => u.id === reqItem.fromUserId);
+    const toUser = store.users.find((u) => u.id === reqItem.toUserId);
+
+    if (!conv) {
+      conv = {
+        id: "conv_dm_" + Math.random().toString(36).substring(2, 10),
+        type: "dm",
+        participants: [reqItem.fromUserId, reqItem.toUserId],
+        updatedAt: new Date().toISOString()
+      };
+      store.conversations.push(conv);
+    }
+
+    // If there is an introductory message from the requester, add it to the conversation
+    if (reqItem.message && fromUser) {
+      const initMsg: Message = {
+        id: "msg_req_" + Math.random().toString(36).substring(2, 10),
+        conversationId: conv.id,
+        senderId: fromUser.id,
+        senderName: fromUser.username,
+        senderAvatar: fromUser.avatar,
+        text: reqItem.message,
+        type: "text",
+        reactions: {},
+        likes: [],
+        createdAt: new Date().toISOString()
+      };
+      store.messages.push(initMsg);
+      conv.lastMessage = {
+        text: initMsg.text,
+        senderId: initMsg.senderId,
+        senderName: initMsg.senderName,
+        createdAt: initMsg.createdAt
+      };
+      conv.updatedAt = initMsg.createdAt;
+    }
+
+    saveStore();
+
+    broadcastEvent("chat_request_accepted", { request: reqItem, conversation: conv });
+    return res.json({ success: true, request: reqItem, conversation: conv });
+  } else {
+    reqItem.status = "declined";
+    saveStore();
+    broadcastEvent("chat_request_declined", { request: reqItem });
+    return res.json({ success: true, request: reqItem });
+  }
 });
 
 // 4b. Delete Account
@@ -318,6 +471,23 @@ app.post("/api/conversations/dm", (req: Request, res: Response) => {
       c.participants.includes(currentUserId) &&
       c.participants.includes(targetUserId)
   );
+
+  const targetUser = store.users.find((u) => u.id === targetUserId);
+  if (!conv && targetUser?.isPrivate) {
+    // Check if there is an accepted request
+    const acceptedReq = (store.chatRequests || []).find(
+      (r) =>
+        ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
+          (r.fromUserId === targetUserId && r.toUserId === currentUserId)) &&
+        r.status === "accepted"
+    );
+    if (!acceptedReq) {
+      return res.status(403).json({
+        requiresRequest: true,
+        error: "This user has a private profile. Please send a chat invitation request to connect."
+      });
+    }
+  }
 
   if (!conv) {
     conv = {

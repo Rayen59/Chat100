@@ -9,6 +9,21 @@ export interface User {
   createdAt: string;
   badges?: string[];
   blockedUserIds?: string[];
+  isPrivate?: boolean;
+  hideEmail?: boolean;
+}
+
+export interface ChatRequest {
+  id: string;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserAvatar: string;
+  toUserId: string;
+  toUserName?: string;
+  toUserAvatar?: string;
+  message?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
 }
 
 export interface ReactionMap {

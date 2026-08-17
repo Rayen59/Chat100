@@ -1,11 +1,31 @@
 import React, { useState, useRef } from "react";
 import { User } from "../types";
-import { X, LogOut, Trash2, ImageIcon, AlertTriangle, Upload, Check } from "lucide-react";
+import {
+  X,
+  LogOut,
+  Trash2,
+  ImageIcon,
+  AlertTriangle,
+  Upload,
+  Check,
+  Lock,
+  Globe,
+  EyeOff,
+  Eye,
+  Shield,
+  ShieldCheck
+} from "lucide-react";
 
 interface ProfileModalProps {
   currentUser: User;
   onClose: () => void;
-  onUpdateProfile: (updated: { username?: string; avatar?: string; bio?: string }) => void;
+  onUpdateProfile: (updated: {
+    username?: string;
+    avatar?: string;
+    bio?: string;
+    isPrivate?: boolean;
+    hideEmail?: boolean;
+  }) => void;
   onLogout: () => void;
   onDeleteAccount: () => void;
 }
@@ -32,6 +52,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const [bio, setBio] = useState(currentUser.bio || "");
   const [avatar, setAvatar] = useState(currentUser.avatar);
   const [customAvatar, setCustomAvatar] = useState("");
+  const [isPrivate, setIsPrivate] = useState<boolean>(!!currentUser.isPrivate);
+  const [hideEmail, setHideEmail] = useState<boolean>(!!currentUser.hideEmail);
   const [saving, setSaving] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -62,12 +84,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           userId: currentUser.id,
           username: username.trim(),
           avatar: selectedAvatar,
-          bio
+          bio,
+          isPrivate,
+          hideEmail
         })
       });
 
       if (res.ok) {
-        onUpdateProfile({ username, avatar: selectedAvatar, bio });
+        onUpdateProfile({
+          username: username.trim(),
+          avatar: selectedAvatar,
+          bio,
+          isPrivate,
+          hideEmail
+        });
         onClose();
       }
     } catch (e) {
@@ -78,7 +108,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#030612]/85 backdrop-blur-xl p-4 select-none animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-[#09112a] border border-blue-500/20 rounded-3xl p-6 text-slate-100 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-900/50">
         <button
           onClick={onClose}
@@ -102,8 +132,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <Upload className="w-4 h-4" />
             </button>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">{username || currentUser.username}</h2>
-          <p className="text-xs text-blue-300/70">{currentUser.email}</p>
+          <div className="flex items-center gap-1.5 justify-center">
+            <h2 className="text-xl font-bold text-white tracking-tight">{username || currentUser.username}</h2>
+            {isPrivate && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                <Lock className="w-3 h-3" />
+                <span>Private</span>
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-blue-300/70 mt-0.5">
+            {hideEmail || isPrivate ? "••••••••••••• (Hidden on Profile)" : currentUser.email}
+          </p>
         </div>
 
         <form onSubmit={handleSave} className="space-y-4">
@@ -127,6 +167,77 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               placeholder="Tell others what you are up to..."
               className="w-full bg-[#050a1b] border border-blue-900/50 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
             />
+          </div>
+
+          {/* Privacy & Visibility Settings Section */}
+          <div className="p-3.5 rounded-2xl bg-[#060d24] border border-blue-900/50 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+              <Shield className="w-4 h-4 text-cyan-400" />
+              <span>Privacy & Connection Settings</span>
+            </div>
+
+            {/* Toggle 1: Private Profile */}
+            <div className="flex items-start justify-between gap-3 pt-1">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                  {isPrivate ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Globe className="w-3.5 h-3.5 text-blue-400" />}
+                  <span>{isPrivate ? "Private Profile" : "Public Profile"}</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  {isPrivate
+                    ? "Users must send you a chat request/invitation. Credentials (email) stay hidden."
+                    : "Anyone can message you immediately. Profile is open to all members."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPrivate(!isPrivate)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isPrivate ? "bg-amber-500 shadow-md shadow-amber-500/30" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    isPrivate ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="border-t border-blue-950/80 my-1" />
+
+            {/* Toggle 2: Hide Email / Credentials */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                  {hideEmail || isPrivate ? <EyeOff className="w-3.5 h-3.5 text-cyan-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                  <span>Hide Email on Profile Card</span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  {isPrivate
+                    ? "Automatically masked because your profile is set to Private."
+                    : hideEmail
+                    ? "Your email is masked (••••@•••) when others view your profile."
+                    : "Your email address is visible on your profile card."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isPrivate}
+                onClick={() => setHideEmail(!hideEmail)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  hideEmail || isPrivate ? "bg-cyan-500 shadow-md shadow-cyan-500/30" : "bg-slate-700"
+                } ${isPrivate ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                    hideEmail || isPrivate ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           <div>
