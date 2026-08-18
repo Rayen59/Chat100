@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { User, Message, Conversation, Group, ActiveCall, ReplyToMessage, ChatRequest } from "./types";
+import { User, Message, Conversation, Group, ActiveCall, ReplyToMessage, ChatRequest, Story } from "./types";
 import { AuthModal } from "./components/AuthModal";
 import { Sidebar } from "./components/Sidebar";
 import { ChatRoom } from "./components/ChatRoom";
@@ -9,6 +9,8 @@ import { AnalyticsView } from "./components/AnalyticsView";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserProfileModal } from "./components/UserProfileModal";
 import { IncomingCallModal } from "./components/IncomingCallModal";
+import { StoryCreatorModal } from "./components/StoryCreatorModal";
+import { StoryViewerModal } from "./components/StoryViewerModal";
 import { NotificationToast, AppNotification } from "./components/NotificationToast";
 import { MessageSquare } from "lucide-react";
 
@@ -23,11 +25,21 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [chatRequests, setChatRequests] = useState<ChatRequest[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   
   const [sidebarTab, setSidebarTab] = useState<"chats" | "people" | "groups" | "requests">("chats");
   const [viewMode, setViewMode] = useState<"chat" | "analytics">("chat");
   const [mobileShowChat, setMobileShowChat] = useState<boolean>(false);
+
+  // Stories Modals State
+  const [storyCreatorOpen, setStoryCreatorOpen] = useState(false);
+  const [storyToEdit, setStoryToEdit] = useState<Story | null>(null);
+  const [storyViewerState, setStoryViewerState] = useState<{
+    open: boolean;
+    targetUserId: string;
+    initialIndex: number;
+  } | null>(null);
 
   // Notifications state
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -75,11 +87,12 @@ export default function App() {
   // Load initial dataset
   const fetchData = async () => {
     try {
-      const [usersRes, convsRes, groupsRes, requestsRes] = await Promise.all([
+      const [usersRes, convsRes, groupsRes, requestsRes, storiesRes] = await Promise.all([
         fetch("/api/users"),
         currentUser ? fetch(`/api/conversations?userId=${currentUser.id}`) : Promise.resolve(null),
         currentUser ? fetch(`/api/groups?userId=${currentUser.id}`) : fetch("/api/groups"),
-        currentUser ? fetch(`/api/requests?userId=${currentUser.id}`) : Promise.resolve(null)
+        currentUser ? fetch(`/api/requests?userId=${currentUser.id}`) : Promise.resolve(null),
+        fetch("/api/stories")
       ]);
 
       if (usersRes && usersRes.ok) {
@@ -92,6 +105,11 @@ export default function App() {
             localStorage.setItem("wavegram_user", JSON.stringify(freshMe));
           }
         }
+      }
+
+      if (storiesRes && storiesRes.ok) {
+        const storiesData = await storiesRes.json();
+        setStories(storiesData.stories || []);
       }
 
       if (convsRes && convsRes.ok) {
@@ -385,6 +403,84 @@ export default function App() {
       const data: { request: ChatRequest } = JSON.parse(e.data);
       setChatRequests((prev) =>
         prev.map((r) => (r.id === data.request.id ? data.request : r))
+      );
+    });
+
+    // Story SSE Events
+    eventSource.addEventListener("story_created", (e: any) => {
+      const newStory: Story = JSON.parse(e.data);
+      setStories((prev) => {
+        if (prev.some((s) => s.id === newStory.id)) return prev;
+        return [newStory, ...prev];
+      });
+      if (newStory.userId !== currentUser.id) {
+        const notif: AppNotification = {
+          id: Math.random().toString(),
+          type: "system",
+          title: "New Story Posted",
+          senderName: newStory.userName,
+          senderAvatar: newStory.userAvatar,
+          text: `Shared a new ${newStory.type} story!`,
+          createdAt: newStory.createdAt
+        };
+        setNotifications((prev) => [...prev, notif]);
+      }
+    });
+
+    eventSource.addEventListener("story_updated", (e: any) => {
+      const updatedStory: Story = JSON.parse(e.data);
+      setStories((prev) => prev.map((s) => (s.id === updatedStory.id ? updatedStory : s)));
+    });
+
+    eventSource.addEventListener("story_deleted", (e: any) => {
+      const data: { storyId: string } = JSON.parse(e.data);
+      setStories((prev) => prev.filter((s) => s.id !== data.storyId));
+    });
+
+    eventSource.addEventListener("story_viewed", (e: any) => {
+      const data: { storyId: string; viewer: any } = JSON.parse(e.data);
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === data.storyId) {
+            const hasViewer = s.viewers.some((v) => v.userId === data.viewer.userId);
+            if (!hasViewer) {
+              return { ...s, viewers: [...s.viewers, data.viewer] };
+            }
+          }
+          return s;
+        })
+      );
+    });
+
+    eventSource.addEventListener("story_reaction", (e: any) => {
+      const data: { storyId: string; reactions: Record<string, string[]>; emoji: string; userId: string } = JSON.parse(e.data);
+      setStories((prev) =>
+        prev.map((s) => (s.id === data.storyId ? { ...s, reactions: data.reactions } : s))
+      );
+    });
+
+    eventSource.addEventListener("story_comment", (e: any) => {
+      const data: { storyId: string; comment: any } = JSON.parse(e.data);
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === data.storyId) {
+            if (s.comments?.some((c) => c.id === data.comment.id)) return s;
+            return { ...s, comments: [...(s.comments || []), data.comment] };
+          }
+          return s;
+        })
+      );
+    });
+
+    eventSource.addEventListener("story_comment_deleted", (e: any) => {
+      const data: { storyId: string; commentId: string } = JSON.parse(e.data);
+      setStories((prev) =>
+        prev.map((s) => {
+          if (s.id === data.storyId) {
+            return { ...s, comments: (s.comments || []).filter((c) => c.id !== data.commentId) };
+          }
+          return s;
+        })
       );
     });
 
@@ -934,6 +1030,61 @@ export default function App() {
     }
   };
 
+  // Stories Handlers
+  const handleOpenStoryCreator = () => {
+    setStoryToEdit(null);
+    setStoryCreatorOpen(true);
+  };
+
+  const handleOpenStoryViewer = (targetUserId: string, initialIndex: number = 0) => {
+    setStoryViewerState({
+      open: true,
+      targetUserId,
+      initialIndex
+    });
+  };
+
+  const handleEditStory = (story: Story) => {
+    setStoryViewerState(null);
+    setStoryToEdit(story);
+    setStoryCreatorOpen(true);
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (!currentUser) return;
+    try {
+      await fetch(`/api/stories/${storyId}?userId=${currentUser.id}`, {
+        method: "DELETE"
+      });
+      setStories((prev) => prev.filter((s) => s.id !== storyId));
+    } catch (err) {
+      console.error("Delete story error:", err);
+    }
+  };
+
+  const handleShareStoryToChat = async (story: Story, targetConvId?: string) => {
+    if (!currentUser) return;
+    const destConvId = targetConvId || activeConversationId || conversations[0]?.id;
+    if (!destConvId) return;
+
+    try {
+      await fetch(`/api/stories/${story.id}/share-to-chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: destConvId,
+          senderId: currentUser.id
+        })
+      });
+      setStoryViewerState(null);
+      setActiveConversationId(destConvId);
+      setViewMode("chat");
+      setMobileShowChat(true);
+    } catch (err) {
+      console.error("Share story error:", err);
+    }
+  };
+
   if (!currentUser) {
     return <AuthModal onLoginSuccess={handleLoginSuccess} />;
   }
@@ -954,6 +1105,7 @@ export default function App() {
           conversations={conversations}
           groups={groups}
           chatRequests={chatRequests}
+          stories={stories}
           activeConversationId={activeConversationId}
           activeTab={sidebarTab}
           setActiveTab={setSidebarTab}
@@ -975,6 +1127,8 @@ export default function App() {
           onOpenProfile={() => setShowProfileModal(true)}
           onLogout={handleLogout}
           onDeleteConversation={handleDeleteConversation}
+          onOpenStoryCreator={handleOpenStoryCreator}
+          onOpenStoryViewer={handleOpenStoryViewer}
         />
       </div>
 
@@ -1021,6 +1175,43 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Story Creator Modal */}
+      {storyCreatorOpen && (
+        <StoryCreatorModal
+          currentUser={currentUser}
+          allUsers={allUsers}
+          storyToEdit={storyToEdit}
+          onClose={() => {
+            setStoryCreatorOpen(false);
+            setStoryToEdit(null);
+          }}
+          onStoryCreated={(newStory) => {
+            setStories((prev) => [newStory, ...prev.filter((s) => s.id !== newStory.id)]);
+          }}
+          onStoryUpdated={(updatedStory) => {
+            setStories((prev) => prev.map((s) => (s.id === updatedStory.id ? updatedStory : s)));
+          }}
+        />
+      )}
+
+      {/* Story Viewer Modal */}
+      {storyViewerState?.open && (
+        <StoryViewerModal
+          currentUser={currentUser}
+          allUsers={allUsers}
+          stories={stories}
+          conversations={conversations}
+          groups={groups}
+          initialUserId={storyViewerState.targetUserId}
+          initialStoryIndex={storyViewerState.initialIndex}
+          onClose={() => setStoryViewerState(null)}
+          onEditStory={handleEditStory}
+          onDeleteStory={handleDeleteStory}
+          onSelectUserProfile={(user) => setSelectedUserProfile(user)}
+          onShareToChat={handleShareStoryToChat}
+        />
+      )}
 
       {/* Group Modal */}
       {groupModalState.open && (

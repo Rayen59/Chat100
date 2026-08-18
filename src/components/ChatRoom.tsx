@@ -57,11 +57,13 @@ import {
   Sliders,
   Move,
   Hand,
-  RefreshCw
+  RefreshCw,
+  Paintbrush
 } from "lucide-react";
 
 import { ForwardModal } from "./ForwardModal";
 import { GifStickerModal } from "./GifStickerModal";
+import { PhotoEditorModal } from "./PhotoEditorModal";
 import { GifItem, StickerItem } from "../types";
 
 interface ChatRoomProps {
@@ -169,6 +171,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   const [touchPinchDist, setTouchPinchDist] = useState<number | null>(null);
   const [touchInitialZoom, setTouchInitialZoom] = useState<number>(1);
   const [savedPhotoToast, setSavedPhotoToast] = useState(false);
+  const [showChatPhotoEditor, setShowChatPhotoEditor] = useState(false);
 
   // Manual Photo Zoom & Pan Helpers
   const handleResetPhotoView = () => {
@@ -998,6 +1001,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
             }
 
             const isMe = msg.senderId === currentUser.id;
+            const isWiaAi = msg.senderId === "user_wia_ai";
             const hasLiked = msg.likes?.includes(currentUser.id);
 
             return (
@@ -1005,23 +1009,39 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 key={msg.id}
                 className={`flex flex-col ${isMe ? "items-end" : "items-start"} group relative`}
               >
-                {/* Sender Name in Groups */}
-                {!isMe && conversation.type === "group" && (
-                  <button
-                    onClick={() => {
-                      const senderUser = allUsers.find((u) => u.id === msg.senderId);
-                      if (senderUser && onSelectUserProfile) {
-                        onSelectUserProfile(senderUser);
-                      }
-                    }}
-                    style={{ color: group?.themeColor || "#60a5fa" }}
-                    className="text-[10px] font-bold hover:underline mb-0.5 ml-1 text-left flex items-center gap-1"
-                  >
-                    <span>{msg.senderName}</span>
-                    {group && (group.creatorId === msg.senderId || group.adminIds?.includes(msg.senderId)) && (
-                      <ShieldCheck className="w-3 h-3 text-cyan-400 inline" />
-                    )}
-                  </button>
+                {/* Sender Name or AI Badge */}
+                {isWiaAi ? (
+                  <div className="flex items-center gap-1.5 mb-1 ml-1 select-none">
+                    <div className="w-5 h-5 rounded-full p-[1.5px] bg-gradient-to-tr from-cyan-400 via-indigo-500 to-fuchsia-500 shadow-[0_0_12px_rgba(168,85,247,0.5)] flex items-center justify-center">
+                      <div className="w-full h-full rounded-full bg-[#080d1e] flex items-center justify-center">
+                        <Sparkles className="w-2.5 h-2.5 text-cyan-300 animate-pulse" />
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-black bg-gradient-to-r from-cyan-300 via-indigo-200 to-pink-300 bg-clip-text text-transparent">
+                      Wia AI
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                      Meta AI Assistant
+                    </span>
+                  </div>
+                ) : (
+                  !isMe && conversation.type === "group" && (
+                    <button
+                      onClick={() => {
+                        const senderUser = allUsers.find((u) => u.id === msg.senderId);
+                        if (senderUser && onSelectUserProfile) {
+                          onSelectUserProfile(senderUser);
+                        }
+                      }}
+                      style={{ color: group?.themeColor || "#60a5fa" }}
+                      className="text-[10px] font-bold hover:underline mb-0.5 ml-1 text-left flex items-center gap-1"
+                    >
+                      <span>{msg.senderName}</span>
+                      {group && (group.creatorId === msg.senderId || group.adminIds?.includes(msg.senderId)) && (
+                        <ShieldCheck className="w-3 h-3 text-cyan-400 inline" />
+                      )}
+                    </button>
+                  )
                 )}
 
                 {/* Quoted Reply if any */}
@@ -1029,10 +1049,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   <div
                     style={group?.themeColor ? { borderLeftColor: group.themeColor } : undefined}
                     className={`max-w-[80%] text-[11px] p-2 rounded-xl mb-1 border-l-2 bg-[#09112a] text-slate-300 ${
-                      isMe ? "border-blue-500" : "border-indigo-500"
+                      isMe ? "border-blue-500" : isWiaAi ? "border-cyan-400" : "border-indigo-500"
                     }`}
                   >
-                    <p className="font-bold text-[10px] text-blue-400">{msg.replyTo.senderName}</p>
+                    <p className="font-bold text-[10px] text-blue-400 flex items-center gap-1">
+                      {msg.replyTo.type === "story" && <Sparkles className="w-3 h-3 text-cyan-400" />}
+                      <span>{msg.replyTo.senderName}</span>
+                    </p>
                     <p className="truncate opacity-80">{msg.replyTo.text}</p>
                   </div>
                 )}
@@ -1070,6 +1093,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                             border: `1px solid ${group.themeColor}60`
                           }
                         : undefined
+                      : isWiaAi
+                      ? {
+                          background: `linear-gradient(145deg, #0a1128, #111a3b)`,
+                          border: `1px solid rgba(6, 182, 212, 0.45)`,
+                          boxShadow: `0 4px 20px rgba(6, 182, 212, 0.18)`
+                        }
                       : group?.themeColor
                       ? {
                           borderLeft: `3px solid ${group.themeColor}`,
@@ -1082,6 +1111,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                   className={`relative max-w-[88%] sm:max-w-[75%] rounded-2xl p-3 text-sm shadow-md transition-all cursor-pointer ${
                     isMe
                       ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white rounded-br-none shadow-blue-600/20"
+                      : isWiaAi
+                      ? "bg-[#0a1128] text-slate-100 rounded-bl-none"
                       : "bg-[#09112a] border border-blue-900/40 text-slate-100 rounded-bl-none hover:border-blue-800/60"
                   }`}
                 >
@@ -1702,6 +1733,20 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
                 <button
                   onClick={() => {
                     setShowPlusMenu(false);
+                    setShowChatPhotoEditor(true);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl hover:bg-cyan-950/40 text-cyan-300 text-xs font-bold transition-colors text-left"
+                >
+                  <Paintbrush className="w-4 h-4 text-cyan-400" />
+                  <div className="flex flex-col">
+                    <span>Photo Studio & Draw 🎨</span>
+                    <span className="text-[10px] text-cyan-200/60 font-normal">Write text & draw on photos</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowPlusMenu(false);
                     setGifStickerTab("gifs");
                     setShowGifStickerModal(true);
                   }}
@@ -1778,41 +1823,59 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </button>
             </div>
           ) : (
-            /* UNIFIED CAPSULE / PILL INPUT BAR (INSTAGRAM/MESSENGER STYLE) */
-            <div className="max-w-4xl mx-auto w-full flex items-center bg-[#171a24] border border-slate-700/60 hover:border-slate-600 rounded-full px-1.5 py-1 shadow-2xl transition-all">
-              
-              {/* LEFT: BLUE/PURPLE CAMERA BUTTON */}
-              <button
-                onClick={() => cameraInputRef.current?.click()}
-                title="Camera / Take a photo"
-                className="w-10 h-10 rounded-full bg-[#5b52f9] hover:bg-[#4f46e5] flex items-center justify-center shrink-0 text-white shadow-md transition-transform active:scale-90 cursor-pointer"
-              >
-                <Camera className="w-5 h-5 text-white" />
-              </button>
+            <div className="max-w-4xl mx-auto w-full flex flex-col gap-1.5">
+              {/* Quick AI Mention Shortcut Chip */}
+              {!inputText.includes("@wia") && !inputText.includes("@lia") && (
+                <div className="flex items-center justify-between px-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputText((prev) => (prev ? `@wia ${prev}` : `@wia `));
+                      textareaRef.current?.focus();
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 hover:from-cyan-500/25 hover:to-purple-500/25 border border-cyan-500/30 text-cyan-300 text-[11px] font-semibold transition-all active:scale-95 shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    <span>Tag <strong className="text-white">@wia</strong> or <strong className="text-white">@lia</strong> to ask AI, translate, or chat ✨</span>
+                  </button>
+                </div>
+              )}
 
-              {/* MIDDLE: EXPANDABLE TEXTAREA WITH SMOOTH INTERNAL SCROLLING */}
-              <div className="flex-1 min-w-0 flex items-center px-2 py-0.5">
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  placeholder="Type a message..."
-                  value={inputText}
-                  onFocus={() => {
-                    setTimeout(() => {
-                      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-                    }, 120);
-                  }}
-                  onChange={(e) => {
-                    setInputText(e.target.value);
-                    e.target.style.height = "auto";
-                    e.target.style.height = `${Math.min(e.target.scrollHeight, 88)}px`;
-                  }}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  style={{ minHeight: "26px", maxHeight: "88px" }}
-                  className="w-full bg-transparent text-slate-100 placeholder-slate-400/90 text-sm focus:outline-none resize-none py-1 leading-relaxed overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700"
-                />
-              </div>
+              {/* UNIFIED CAPSULE / PILL INPUT BAR (INSTAGRAM/MESSENGER STYLE) */}
+              <div className="w-full flex items-center bg-[#171a24] border border-slate-700/60 hover:border-slate-600 rounded-full px-1.5 py-1 shadow-2xl transition-all">
+                
+                {/* LEFT: BLUE/PURPLE CAMERA BUTTON */}
+                <button
+                  onClick={() => cameraInputRef.current?.click()}
+                  title="Camera / Take a photo"
+                  className="w-10 h-10 rounded-full bg-[#5b52f9] hover:bg-[#4f46e5] flex items-center justify-center shrink-0 text-white shadow-md transition-transform active:scale-90 cursor-pointer"
+                >
+                  <Camera className="w-5 h-5 text-white" />
+                </button>
+
+                {/* MIDDLE: EXPANDABLE TEXTAREA WITH SMOOTH INTERNAL SCROLLING */}
+                <div className="flex-1 min-w-0 flex items-center px-2 py-0.5">
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    placeholder="Type a message (tag @wia or @lia for AI)..."
+                    value={inputText}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                      }, 120);
+                    }}
+                    onChange={(e) => {
+                      setInputText(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 88)}px`;
+                    }}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    style={{ minHeight: "26px", maxHeight: "88px" }}
+                    className="w-full bg-transparent text-slate-100 placeholder-slate-400/90 text-sm focus:outline-none resize-none py-1 leading-relaxed overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700"
+                  />
+                </div>
 
               {/* RIGHT ICONS: STRICTLY FIXED SIZE (SHRINK-0) SO THEY NEVER EXPAND */}
               <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 pr-1">
@@ -1881,7 +1944,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               </div>
 
             </div>
-          )}
+          </div>
+        )}
 
         </div>
       )}
@@ -2615,6 +2679,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
           <CheckCircle className="w-4 h-4 text-emerald-200" />
           <span>Photo successfully saved to your gallery!</span>
         </div>
+      )}
+
+      {/* In-Chat Photo Studio Overlay */}
+      {showChatPhotoEditor && (
+        <PhotoEditorModal
+          currentUser={currentUser}
+          onClose={() => setShowChatPhotoEditor(false)}
+          onSendToChat={(mediaUrl, caption) => {
+            setShowChatPhotoEditor(false);
+            onSendMessage({
+              type: "image",
+              mediaUrl,
+              text: caption || undefined
+            });
+          }}
+        />
       )}
     </div>
   );

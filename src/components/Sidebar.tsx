@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { User, Conversation, Group, ChatRequest } from "../types";
+import { User, Conversation, Group, ChatRequest, Story } from "../types";
+import { StoriesBar } from "./StoriesBar";
 import {
   MessageSquare,
   Users,
@@ -26,6 +27,7 @@ interface SidebarProps {
   conversations: Conversation[];
   groups: Group[];
   chatRequests?: ChatRequest[];
+  stories?: Story[];
   activeConversationId: string | null;
   activeTab: "chats" | "people" | "groups" | "requests";
   setActiveTab: (tab: "chats" | "people" | "groups" | "requests") => void;
@@ -40,6 +42,8 @@ interface SidebarProps {
   onOpenProfile: () => void;
   onLogout: () => void;
   onDeleteConversation?: (convId: string) => void;
+  onOpenStoryCreator: () => void;
+  onOpenStoryViewer: (targetUserId: string, initialStoryIndex?: number) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -48,6 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   conversations,
   groups,
   chatRequests = [],
+  stories = [],
   activeConversationId,
   activeTab,
   setActiveTab,
@@ -61,7 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAnalytics,
   onOpenProfile,
   onLogout,
-  onDeleteConversation
+  onDeleteConversation,
+  onOpenStoryCreator,
+  onOpenStoryViewer
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -217,6 +224,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </span>
         </button>
       </div>
+
+      {/* Stories Bar Ribbon */}
+      <StoriesBar
+        currentUser={currentUser}
+        allUsers={allUsers}
+        stories={stories}
+        onOpenCreator={onOpenStoryCreator}
+        onOpenStoryViewer={onOpenStoryViewer}
+      />
 
       {/* Search Bar */}
       <div className="p-3">

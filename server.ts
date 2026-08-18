@@ -2,10 +2,32 @@ import express, { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { User, Message, Group, Conversation, ActiveCall, UserAnalytics, ChatRequest } from "./src/types";
+import { GoogleGenAI } from "@google/genai";
+import { User, Message, Group, Conversation, ActiveCall, UserAnalytics, ChatRequest, Story, StoryComment, StoryAnonymousAnswer } from "./src/types";
 
 const app = express();
 const PORT = 3000;
+
+// Gemini AI client initialization
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      "User-Agent": "aistudio-build",
+    },
+  },
+});
+
+export const WIA_AI_USER: User = {
+  id: "user_wia_ai",
+  email: "wia.ai@wavegram.internal",
+  username: "Wia AI",
+  avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=WiaMetaAI&backgroundColor=6366f1,a855f7,06b6d4",
+  bio: "Wavegram Official AI Assistant ⚡ Tag @wia or @lia in any group or direct chat to ask questions, solve tasks, translate, or chat!",
+  status: "online",
+  createdAt: new Date("2025-01-01").toISOString(),
+  badges: ["AI Assistant", "Meta AI", "Verified"]
+};
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -20,6 +42,7 @@ interface DataStore {
   groups: Group[];
   passwords: { [email: string]: string };
   chatRequests: ChatRequest[];
+  stories: Story[];
 }
 
 let store: DataStore = {
@@ -28,7 +51,8 @@ let store: DataStore = {
   messages: [],
   groups: [],
   passwords: {},
-  chatRequests: []
+  chatRequests: [],
+  stories: []
 };
 
 function loadStore() {
@@ -37,6 +61,12 @@ function loadStore() {
       const data = fs.readFileSync(DB_FILE, "utf-8");
       store = JSON.parse(data);
       if (!store.chatRequests) store.chatRequests = [];
+      if (!store.stories || store.stories.length === 0) {
+        seedInitialStories();
+      }
+      if (!store.users.some((u) => u.id === WIA_AI_USER.id)) {
+        store.users.push(WIA_AI_USER);
+      }
     } else {
       seedInitialData();
     }
@@ -44,6 +74,245 @@ function loadStore() {
     console.error("Error loading DB file, re-initializing:", err);
     seedInitialData();
   }
+}
+
+function seedInitialStories() {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const demoStories: Story[] = [
+    {
+      id: "story_sarah_1",
+      userId: "user_sarah",
+      userName: "Sarah Jenkins",
+      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+      type: "image",
+      mediaUrl: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1080&auto=format&fit=crop&q=80",
+      caption: "Creative morning sprint at the design studio! Crafting new story filters ☕🎨✨",
+      duration: 6,
+      montage: {
+        filter: "vivid",
+        brightness: 105,
+        contrast: 110,
+        saturation: 115,
+        sepia: 0,
+        blur: 0,
+        hueRotate: 0,
+        aspectRatio: "9:16",
+        stickers: [
+          { id: "stk_1", emoji: "✨", x: 80, y: 15, scale: 1.4, rotation: 12 },
+          { id: "stk_2", emoji: "🎨", x: 15, y: 75, scale: 1.3, rotation: -10 }
+        ],
+        textOverlays: [
+          {
+            id: "txt_1",
+            text: "Design Sprint #42",
+            color: "#ffffff",
+            background: "rgba(14, 165, 233, 0.75)",
+            x: 50,
+            y: 20,
+            scale: 1.1,
+            font: "sans-serif"
+          }
+        ]
+      },
+      tags: [
+        { id: "t1", type: "user", label: "Alex Morgan", value: "user_alex", userId: "user_alex" },
+        { id: "t2", type: "hashtag", label: "#DesignThinking", value: "DesignThinking" },
+        { id: "t3", type: "location", label: "📍 Blue Bottle Studio", value: "Blue Bottle Studio" },
+        { id: "t4", type: "music", label: "🎵 Chill Vibes - Lofi Sunset", value: "Chill Vibes" }
+      ],
+      location: "Blue Bottle Studio, San Francisco",
+      music: {
+        title: "Chill Vibes",
+        artist: "Lofi Sunset Studio"
+      },
+      reactions: {
+        "❤️": ["user_alex", "user_david"],
+        "🔥": ["user_alex"],
+        "😍": ["user_david"]
+      },
+      comments: [
+        {
+          id: "sc_1",
+          storyId: "story_sarah_1",
+          userId: "user_alex",
+          userName: "Alex Morgan",
+          userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          text: "Love the palette! Can't wait to release this feature 🚀",
+          createdAt: new Date(now - 3600000).toISOString(),
+          likes: ["user_sarah"]
+        },
+        {
+          id: "sc_2",
+          storyId: "story_sarah_1",
+          userId: "user_sarah",
+          userName: "Sarah Jenkins",
+          userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+          text: "Thanks Alex! Full typography engine is ready too!",
+          createdAt: new Date(now - 3000000).toISOString(),
+          parentId: "sc_1",
+          replyToUserName: "Alex Morgan"
+        }
+      ],
+      viewers: [
+        {
+          userId: "user_alex",
+          userName: "Alex Morgan",
+          userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          viewedAt: new Date(now - 4000000).toISOString(),
+          reaction: "❤️"
+        },
+        {
+          userId: "user_david",
+          userName: "David Chen",
+          userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+          viewedAt: new Date(now - 2500000).toISOString(),
+          reaction: "😍"
+        }
+      ],
+      createdAt: new Date(now - 5400000).toISOString(),
+      expiresAt: new Date(now + dayMs).toISOString()
+    },
+    {
+      id: "story_sarah_2",
+      userId: "user_sarah",
+      userName: "Sarah Jenkins",
+      userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+      type: "text",
+      textContent: "Good design is as little design as possible. Less, but better – because it concentrates on the essential aspects.",
+      textStyle: {
+        template: "neon_glow",
+        backgroundGradient: "linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #0f172a 100%)",
+        textColor: "#38bdf8",
+        fontSize: "lg",
+        textAlign: "center",
+        fontFamily: "sans-serif",
+        highlightCard: true
+      },
+      duration: 6,
+      tags: [
+        { id: "t5", type: "hashtag", label: "#DieterRams", value: "DieterRams" },
+        { id: "t6", type: "hashtag", label: "#Minimalism", value: "Minimalism" }
+      ],
+      reactions: {
+        "⚡": ["user_alex"],
+        "💯": ["user_david"]
+      },
+      comments: [],
+      viewers: [
+        {
+          userId: "user_alex",
+          userName: "Alex Morgan",
+          userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          viewedAt: new Date(now - 1200000).toISOString(),
+          reaction: "⚡"
+        }
+      ],
+      createdAt: new Date(now - 3600000).toISOString(),
+      expiresAt: new Date(now + dayMs).toISOString()
+    },
+    {
+      id: "story_alex_1",
+      userId: "user_alex",
+      userName: "Alex Morgan",
+      userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+      type: "image",
+      mediaUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1080&auto=format&fit=crop&q=80",
+      caption: "Sunset overlooking the Pacific Coast. Nature's ultimate high definition canvas 🌅",
+      duration: 6,
+      montage: {
+        filter: "sunset",
+        brightness: 108,
+        contrast: 105,
+        saturation: 120,
+        sepia: 10,
+        blur: 0,
+        hueRotate: 0,
+        aspectRatio: "9:16",
+        stickers: [
+          { id: "stk_3", emoji: "🌅", x: 50, y: 15, scale: 1.5, rotation: 0 },
+          { id: "stk_4", emoji: "🏄", x: 80, y: 80, scale: 1.2, rotation: -15 }
+        ]
+      },
+      tags: [
+        { id: "t7", type: "location", label: "📍 Big Sur, California", value: "Big Sur" },
+        { id: "t8", type: "hashtag", label: "#SunsetChaser", value: "SunsetChaser" },
+        { id: "t9", type: "music", label: "🎵 Golden Hour - Wavescape", value: "Golden Hour" }
+      ],
+      location: "Big Sur, California",
+      music: {
+        title: "Golden Hour",
+        artist: "Wavescape Ambient"
+      },
+      reactions: {
+        "🔥": ["user_sarah", "user_david"],
+        "❤️": ["user_sarah"]
+      },
+      comments: [
+        {
+          id: "sc_3",
+          storyId: "story_alex_1",
+          userId: "user_sarah",
+          userName: "Sarah Jenkins",
+          userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+          text: "Breathtaking colors! Did you use the sunset montage preset?",
+          createdAt: new Date(now - 7000000).toISOString()
+        }
+      ],
+      viewers: [
+        {
+          userId: "user_sarah",
+          userName: "Sarah Jenkins",
+          userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
+          viewedAt: new Date(now - 7200000).toISOString(),
+          reaction: "🔥"
+        }
+      ],
+      createdAt: new Date(now - 8000000).toISOString(),
+      expiresAt: new Date(now + dayMs).toISOString()
+    },
+    {
+      id: "story_david_1",
+      userId: "user_david",
+      userName: "David Chen",
+      userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+      type: "text",
+      textContent: "🎙️ Sound Check & Waveform Test: Spatial acoustics calibrated. New studio gear unlocked! 🎧",
+      textStyle: {
+        template: "cyberpunk",
+        backgroundGradient: "linear-gradient(135deg, #05050d 0%, #0f172a 50%, #022c22 100%)",
+        textColor: "#22c55e",
+        fontSize: "lg",
+        textAlign: "center",
+        fontFamily: "monospace",
+        highlightCard: true
+      },
+      duration: 6,
+      tags: [
+        { id: "t10", type: "hashtag", label: "#AudioEngineering", value: "AudioEngineering" },
+        { id: "t11", type: "location", label: "📍 SoundLab Tokyo", value: "SoundLab Tokyo" }
+      ],
+      reactions: {
+        "🚀": ["user_alex"],
+        "👏": ["user_sarah"]
+      },
+      comments: [],
+      viewers: [
+        {
+          userId: "user_alex",
+          userName: "Alex Morgan",
+          userAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+          viewedAt: new Date(now - 15000000).toISOString(),
+          reaction: "🚀"
+        }
+      ],
+      createdAt: new Date(now - 16000000).toISOString(),
+      expiresAt: new Date(now + dayMs).toISOString()
+    }
+  ];
+
+  store.stories = demoStories;
 }
 
 function saveStore() {
@@ -742,8 +1011,177 @@ app.post("/api/messages/send", (req: Request, res: Response) => {
 
   broadcastEvent("new_message", newMessage);
 
+  // Check if this message triggers Wia/Lia AI (@wia, @lia, @meta ai, @meta, @ai, @bot) or if it's a DM with Wia AI
+  const isWiaTriggered =
+    /@(wia|lia|meta\s*ai|Meta\s*AI|meta|Meta|ai|AI|bot|Bot|gemini|Gemini)\b/i.test(text || "") ||
+    (conv.type === "dm" && (conv.participants.includes(WIA_AI_USER.id) || conv.participants.includes("user_lia_ai")));
+
+  if (isWiaTriggered && senderId !== WIA_AI_USER.id) {
+    setTimeout(() => {
+      triggerWiaAiResponse(conv, newMessage, sender);
+    }, 200);
+  }
+
   return res.json({ message: newMessage });
 });
+
+// Wia/Lia AI intelligent assistant handler powered by Gemini with robust fallback
+async function triggerWiaAiResponse(conv: Conversation, userMsg: Message, sender: User) {
+  try {
+    const rawText = userMsg.text || "";
+    // Clean tag prefix e.g. @wia, @lia, @Meta AI, @meta, @ai, @bot
+    let prompt = rawText.replace(/@(wia|lia|meta\s*ai|Meta\s*AI|meta|Meta|ai|AI|bot|Bot|gemini|Gemini)\b/gi, "").trim();
+    if (!prompt) {
+      prompt = "Hello! What can you do?";
+    }
+
+    // Get previous 6 messages for context
+    const recentMessages = store.messages
+      .filter((m) => m.conversationId === conv.id && m.id !== userMsg.id)
+      .slice(-6)
+      .map((m) => `${m.senderName}: ${m.text || `[${m.type}]`}`)
+      .join("\n");
+
+    const systemInstruction = `You are Wia AI / Lia (like Meta AI in WhatsApp & Instagram), a smart, super friendly, witty, and culturally savvy assistant embedded directly inside Wavegram chats.
+- You understand and respond fluently in ANY language (English, French, Arabic, Tunisian Derja, Spanish, etc.) matching the user's natural language and slang.
+- When users talk in French, Arabic, or Tunisian Derja, answer fluently and naturally in that language with playful emojis (😂, ⚡, 🔥, 👏, 💡, 🚀) just like Meta AI.
+- You can answer questions, give advice, summarize, write text/code, explain things, translate, tell jokes, solve math/trivia, or do any task requested by the user.
+- Keep responses concise, direct, engaging, and friendly for a chat bubble without robot formatting.
+- If asked who you are: you are Wia AI (Wavegram AI assistant powered by Gemini).`;
+
+    const chatContextPrompt = recentMessages
+      ? `Recent chat messages:\n${recentMessages}\n\nUser ${sender.username} asks: ${prompt}\n\nPlease respond as Wia AI:`
+      : `User ${sender.username} asks: ${prompt}\n\nPlease respond as Wia AI:`;
+
+    let replyText = "";
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemInstruction}\n\n${chatContextPrompt}` }]
+            }
+          ]
+        });
+        replyText = response.text || "";
+      } catch (geminiErr) {
+        console.error("Gemini API call failed, generating contextual fallback:", geminiErr);
+        replyText = generateSmartFallbackReply(prompt, sender.username);
+      }
+    }
+
+    if (!replyText || replyText.trim().length === 0) {
+      replyText = generateSmartFallbackReply(prompt, sender.username);
+    }
+
+    const aiMessage: Message = {
+      id: "msg_wia_" + Math.random().toString(36).substring(2, 10),
+      conversationId: conv.id,
+      senderId: WIA_AI_USER.id,
+      senderName: WIA_AI_USER.username,
+      senderAvatar: WIA_AI_USER.avatar,
+      text: replyText.trim(),
+      type: "text",
+      reactions: {},
+      likes: [],
+      replyTo: {
+        id: userMsg.id,
+        senderName: sender.username,
+        text: userMsg.text,
+        type: userMsg.type
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    store.messages.push(aiMessage);
+
+    conv.lastMessage = {
+      text: replyText.trim(),
+      senderId: WIA_AI_USER.id,
+      senderName: WIA_AI_USER.username,
+      createdAt: aiMessage.createdAt
+    };
+    conv.updatedAt = aiMessage.createdAt;
+    saveStore();
+
+    broadcastEvent("new_message", aiMessage);
+  } catch (err: any) {
+    console.error("Error generating Wia AI response:", err);
+    const fallbackText = `Hey @${sender.username}! ✨ I'm here and ready to help. You asked: "${userMsg.text}". Let me know if you need anything! 🚀`;
+    const errMessage: Message = {
+      id: "msg_wia_fb_" + Math.random().toString(36).substring(2, 10),
+      conversationId: conv.id,
+      senderId: WIA_AI_USER.id,
+      senderName: WIA_AI_USER.username,
+      senderAvatar: WIA_AI_USER.avatar,
+      text: fallbackText,
+      type: "text",
+      reactions: {},
+      likes: [],
+      createdAt: new Date().toISOString()
+    };
+    store.messages.push(errMessage);
+    saveStore();
+    broadcastEvent("new_message", errMessage);
+  }
+}
+
+// Smart contextual offline / fallback response generator for Wia/Lia AI
+function generateSmartFallbackReply(prompt: string, username: string): string {
+  const p = prompt.toLowerCase();
+
+  // Math expressions
+  const mathMatch = prompt.match(/(\d+[\s\+\-\*\/\^\%]+\d+)/);
+  if (mathMatch) {
+    try {
+      const sanitized = mathMatch[0].replace(/[^0-9\+\-\*\/\.]/g, "");
+      // eslint-disable-next-line no-eval
+      const result = Function(`'use strict'; return (${sanitized})`)();
+      return `🔢 Calculation result: **${mathMatch[0]} = ${result}** ✨`;
+    } catch (e) {}
+  }
+
+  // French queries
+  if (p.includes("bonjour") || p.includes("salut") || p.includes("ca va") || p.includes("ça va") || p.includes("coucou")) {
+    return `Salut ${username} ! 👋 Je suis Wia AI (Lia), ton assistante intelligente sur Wavegram. Comment puis-je t'aider aujourd'hui ? ⚡`;
+  }
+  if (p.includes("qui es-tu") || p.includes("t'es qui") || p.includes("qui est tu") || p.includes("c'est quoi")) {
+    return `Je suis **Wia AI** (Lia), l'intelligence artificielle intégrée à Wavegram ! 🚀 Tu peux me tagger avec \`@wia\` ou \`@lia\` dans n'importe quel chat pour poser des questions, traduire, résumer ou discuter.`;
+  }
+  if (p.includes("merci")) {
+    return `Avec grand plaisir ${username} ! 😊 N'hésite pas si tu as d'autres questions ! ✨`;
+  }
+  if (p.includes("blague") || p.includes("raconte")) {
+    return `Pourquoi les plongeurs plongent-ils toujours en arrière et jamais en avant ? 🤿 ... Parce que sinon ils tombent dans le bateau ! 😂🚤`;
+  }
+
+  // Arabic / Tunisian queries
+  if (p.includes("marhaba") || p.includes("aslema") || p.includes("ahla") || p.includes("salam") || p.includes("مرحبا") || p.includes("سلام") || p.includes("عسلامة")) {
+    return `أهلاً وسهلاً ${username}! 👋 أنا Wia AI (ليا)، مساعدتك الذكية في Wavegram. كيفاش نجم نعاونك اليوم؟ ⚡✨`;
+  }
+  if (p.includes("chkoun") || p.includes("chkoun enti") || p.includes("من انت") || p.includes("شكونك")) {
+    return `أنا **Wia AI** 🚀 الذكاء الاصطناعي الخاص بـ Wavegram! تنجم تطاڨيني بـ \`@wia\` ولا \`@lia\` في أي شات باش تسألني، نترجملك، ولا نعاونك في أي حاجة! 🔥`;
+  }
+
+  // English queries
+  if (p.includes("hello") || p.includes("hi") || p.includes("hey") || p.includes("what's up") || p.includes("whats up")) {
+    return `Hey @${username}! 👋 I'm Wia AI (Lia), your built-in intelligent assistant on Wavegram. How can I help you today? ⚡✨`;
+  }
+  if (p.includes("who are you") || p.includes("what are you") || p.includes("what can you do")) {
+    return `I am **Wia AI** 🚀 (Wavegram's smart assistant powered by Gemini). You can mention me anytime using \`@wia\` or \`@lia\` in any direct or group chat to ask questions, translate text, solve problems, or chat! ✨`;
+  }
+  if (p.includes("joke") || p.includes("funny")) {
+    return `Why do programmers prefer dark mode? 💻 ... Because light attracts bugs! 🐛😂`;
+  }
+  if (p.includes("thank") || p.includes("thanks")) {
+    return `You're very welcome, @${username}! 🌟 Always happy to help. Let me know if you need anything else!`;
+  }
+
+  // General helpful response
+  return `✨ **Wia AI**: Hey @${username}! I analyzed your prompt: "${prompt}". I'm actively assisting you right here in Wavegram! Feel free to ask me questions, request translations, or test any feature! 🚀`;
+}
 
 // Poll Vote Endpoint
 app.post("/api/messages/poll/vote", (req: Request, res: Response) => {
@@ -1572,7 +2010,7 @@ app.get("/api/stickers", (req: Request, res: Response) => {
     stickers: results,
     categories: [
       { id: "all", label: "✨ All Stickers", count: COMPREHENSIVE_STICKERS.length },
-      { id: "plumes", label: "🪶 Plumes & Feathers", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "plumes").length },
+      { id: "plumes", label: "🪶 Feathers & Wings", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "plumes").length },
       { id: "3d", label: "💎 3D Emojis & Gems", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "3d").length },
       { id: "cyber", label: "⚡ Cyber & Neon", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "cyber").length },
       { id: "cute", label: "🐱 Cute Kawaii", count: COMPREHENSIVE_STICKERS.filter(s => s.category === "cute").length },
@@ -1785,6 +2223,553 @@ app.get("/api/analytics/:userId", (req: Request, res: Response) => {
   };
 
   return res.json({ analytics: analyticsData });
+});
+
+// ==========================================
+// STORIES API ENDPOINTS
+// ==========================================
+
+// 1. Get all active stories
+app.get("/api/stories", (req: Request, res: Response) => {
+  if (!store.stories) store.stories = [];
+  const now = Date.now();
+  
+  // Clean up expired stories older than 48 hours to prevent unbounded memory growth
+  store.stories = store.stories.filter((s) => {
+    const expires = s.expiresAt ? new Date(s.expiresAt).getTime() : new Date(s.createdAt).getTime() + 24 * 60 * 60 * 1000;
+    return expires > now - 24 * 60 * 60 * 1000;
+  });
+
+  return res.json({ stories: store.stories });
+});
+
+// 2. Create new story (image, video up to 60s, styled text story, or NGL anonymous Q&A)
+app.post("/api/stories", (req: Request, res: Response) => {
+  const {
+    userId,
+    userName,
+    userAvatar,
+    type,
+    mediaUrl,
+    videoDuration,
+    textContent,
+    textStyle,
+    caption,
+    montage,
+    tags,
+    location,
+    music,
+    duration,
+    anonymousPrompt,
+    sharedAnswerData
+  } = req.body;
+
+  if (!userId || !type) {
+    return res.status(400).json({ error: "userId and type are required." });
+  }
+
+  // Validate user exists
+  const user = store.users.find((u) => u.id === userId);
+  const authorName = userName || user?.username || "Wavegram User";
+  const authorAvatar = userAvatar || user?.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${userId}`;
+
+  // Video duration ceiling rule: max 60 seconds (1 minute)
+  let validatedVideoDuration = videoDuration;
+  if (type === "video") {
+    if (validatedVideoDuration && validatedVideoDuration > 60) {
+      validatedVideoDuration = 60; // strictly capped at 60 seconds
+    }
+  }
+
+  const newStory: Story = {
+    id: "story_" + Math.random().toString(36).substring(2, 11),
+    userId,
+    userName: authorName,
+    userAvatar: authorAvatar,
+    type,
+    mediaUrl: mediaUrl || undefined,
+    videoDuration: validatedVideoDuration,
+    textContent: textContent || undefined,
+    textStyle: textStyle || undefined,
+    caption: caption ? caption.trim() : undefined,
+    montage: montage || undefined,
+    tags: Array.isArray(tags) ? tags : [],
+    location: location ? location.trim() : undefined,
+    music: music || undefined,
+    anonymousPrompt: anonymousPrompt || undefined,
+    anonymousAnswers: [],
+    sharedAnswerData: sharedAnswerData || undefined,
+    reactions: {},
+    comments: [],
+    viewers: [],
+    duration: type === "video" ? (validatedVideoDuration ? Math.min(60, Math.max(3, validatedVideoDuration)) : 10) : (duration || 6),
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  };
+
+  if (!store.stories) store.stories = [];
+  store.stories.unshift(newStory);
+  saveStore();
+
+  broadcastEvent("story_created", newStory);
+
+  return res.json({ story: newStory });
+});
+
+// 3. Edit / Modify story (Creator only)
+app.put("/api/stories/:id", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId, caption, textContent, textStyle, tags, location, music, montage } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (story.userId !== userId) {
+    return res.status(403).json({ error: "Only the story creator can modify this story." });
+  }
+
+  if (caption !== undefined) story.caption = caption;
+  if (textContent !== undefined) story.textContent = textContent;
+  if (textStyle !== undefined) story.textStyle = textStyle;
+  if (tags !== undefined) story.tags = tags;
+  if (location !== undefined) story.location = location;
+  if (music !== undefined) story.music = music;
+  if (montage !== undefined) story.montage = montage;
+
+  story.isEdited = true;
+  story.editedAt = new Date().toISOString();
+
+  saveStore();
+  broadcastEvent("story_updated", story);
+
+  return res.json({ story });
+});
+
+// 4. Delete story (Creator only)
+app.delete("/api/stories/:id", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.query.userId as string;
+
+  if (!store.stories) store.stories = [];
+  const index = store.stories.findIndex((s) => s.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  const story = store.stories[index];
+  if (userId && story.userId !== userId) {
+    return res.status(403).json({ error: "Only the creator can delete this story." });
+  }
+
+  store.stories.splice(index, 1);
+  saveStore();
+
+  broadcastEvent("story_deleted", { storyId: id });
+
+  return res.json({ success: true, storyId: id });
+});
+
+// 5. Record Story View
+app.post("/api/stories/:id/view", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId, userName, userAvatar } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (!userId) {
+    return res.status(400).json({ error: "userId is required" });
+  }
+
+  const existingViewer = story.viewers.find((v) => v.userId === userId);
+  if (!existingViewer) {
+    const user = store.users.find((u) => u.id === userId);
+    const viewerRecord = {
+      userId,
+      userName: userName || user?.username || "Wavegram User",
+      userAvatar: userAvatar || user?.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${userId}`,
+      viewedAt: new Date().toISOString()
+    };
+    story.viewers.push(viewerRecord);
+    saveStore();
+    broadcastEvent("story_viewed", { storyId: id, viewer: viewerRecord });
+  }
+
+  return res.json({ viewers: story.viewers });
+});
+
+// 6. React / Toggle emoji reaction on story
+app.post("/api/stories/:id/react", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId, emoji } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (!userId || !emoji) {
+    return res.status(400).json({ error: "userId and emoji are required." });
+  }
+
+  if (!story.reactions) story.reactions = {};
+
+  const currentReactors = story.reactions[emoji] || [];
+  if (currentReactors.includes(userId)) {
+    // remove reaction
+    story.reactions[emoji] = currentReactors.filter((u) => u !== userId);
+    if (story.reactions[emoji].length === 0) {
+      delete story.reactions[emoji];
+    }
+  } else {
+    // add reaction
+    story.reactions[emoji] = [...currentReactors, userId];
+  }
+
+  // Update viewer's reaction if present
+  const viewer = story.viewers.find((v) => v.userId === userId);
+  if (viewer) {
+    viewer.reaction = story.reactions[emoji]?.includes(userId) ? emoji : undefined;
+  }
+
+  saveStore();
+  broadcastEvent("story_reaction", { storyId: id, reactions: story.reactions, emoji, userId });
+
+  return res.json({ reactions: story.reactions });
+});
+
+// 7. Add Comment or Reply on Story
+app.post("/api/stories/:id/comments", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { userId, userName, userAvatar, text, parentId, replyToUserName } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (!userId || !text || !text.trim()) {
+    return res.status(400).json({ error: "userId and text are required." });
+  }
+
+  const user = store.users.find((u) => u.id === userId);
+  const newComment: StoryComment = {
+    id: "sc_" + Math.random().toString(36).substring(2, 11),
+    storyId: id,
+    userId,
+    userName: userName || user?.username || "Wavegram User",
+    userAvatar: userAvatar || user?.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${userId}`,
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    parentId: parentId || undefined,
+    replyToUserName: replyToUserName || undefined,
+    likes: []
+  };
+
+  if (!story.comments) story.comments = [];
+  story.comments.push(newComment);
+
+  // Requirement: When someone replies to a story, ALSO send it directly to their DM chat!
+  if (userId !== story.userId) {
+    let dmConv = store.conversations.find(
+      (c) =>
+        c.type === "dm" &&
+        c.participants.includes(userId) &&
+        c.participants.includes(story.userId)
+    );
+
+    if (!dmConv) {
+      dmConv = {
+        id: "conv_dm_" + Math.random().toString(36).substring(2, 10),
+        type: "dm",
+        participants: [userId, story.userId],
+        updatedAt: new Date().toISOString()
+      };
+      store.conversations.push(dmConv);
+      broadcastEvent("conversation_created", dmConv);
+    }
+
+    const replyChatText = `Replied to your story: "${text.trim()}"`;
+    const storySnippet = story.caption || story.textContent || (story.anonymousPrompt ? story.anonymousPrompt.question : "Story Snapshot");
+
+    const chatMsg: Message = {
+      id: "msg_story_reply_" + Math.random().toString(36).substring(2, 11),
+      conversationId: dmConv.id,
+      senderId: userId,
+      senderName: newComment.userName,
+      senderAvatar: newComment.userAvatar,
+      text: replyChatText,
+      type: story.type === "video" ? "video" : story.type === "image" ? "image" : "text",
+      mediaUrl: story.mediaUrl,
+      reactions: {},
+      likes: [],
+      replyTo: {
+        id: story.id,
+        senderName: story.userName,
+        text: storySnippet,
+        type: "story"
+      },
+      createdAt: new Date().toISOString()
+    };
+
+    store.messages.push(chatMsg);
+    dmConv.lastMessage = {
+      text: replyChatText,
+      senderId: userId,
+      senderName: chatMsg.senderName,
+      createdAt: chatMsg.createdAt
+    };
+    dmConv.updatedAt = chatMsg.createdAt;
+    broadcastEvent("new_message", chatMsg);
+  }
+
+  saveStore();
+  broadcastEvent("story_comment", { storyId: id, comment: newComment });
+
+  return res.json({ comment: newComment, comments: story.comments });
+});
+
+// 7b. Submit 100% Anonymous Answer to Story (NGL Style)
+app.post("/api/stories/:id/anonymous-answers", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { text } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "Text response cannot be empty." });
+  }
+
+  const ANONYMOUS_TITLES = [
+    "Secret Admirer", "Anonymous Friend", "Ghost Reader", "Mysterious Contact",
+    "Honest Stranger", "Night Owl", "Silent Fan", "Whispering Star", "Anonymous Secret"
+  ];
+  const randomLabel = ANONYMOUS_TITLES[Math.floor(Math.random() * ANONYMOUS_TITLES.length)] + " #" + Math.floor(100 + Math.random() * 900);
+
+  const answer: StoryAnonymousAnswer = {
+    id: "anon_" + Math.random().toString(36).substring(2, 11),
+    storyId: id,
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    anonymousLabel: randomLabel
+  };
+
+  if (!story.anonymousAnswers) story.anonymousAnswers = [];
+  story.anonymousAnswers.unshift(answer);
+  saveStore();
+
+  // Send SSE event for real-time notification to the story creator
+  broadcastEvent("story_anonymous_answer", { storyId: id, answer });
+
+  return res.json({ success: true, answer });
+});
+
+// 7c. Get Anonymous Answers (Story Creator Only)
+app.get("/api/stories/:id/anonymous-answers", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.query.userId as string;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (userId && story.userId !== userId) {
+    return res.status(403).json({ error: "Only the story creator can access private anonymous answers." });
+  }
+
+  return res.json({ answers: story.anonymousAnswers || [] });
+});
+
+// 7d. Share an Anonymous Answer publicly to a New Story
+app.post("/api/stories/:id/share-anonymous-answer", (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { answerId, userId, backgroundPreset } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  if (story.userId !== userId) {
+    return res.status(403).json({ error: "Only the story creator can share anonymous answers." });
+  }
+
+  const answer = (story.anonymousAnswers || []).find((a) => a.id === answerId);
+  if (!answer) {
+    return res.status(404).json({ error: "Anonymous answer not found." });
+  }
+
+  const questionTitle = story.anonymousPrompt?.question || "Anonymous Question";
+
+  const newStory: Story = {
+    id: "story_shared_anon_" + Math.random().toString(36).substring(2, 11),
+    userId: story.userId,
+    userName: story.userName,
+    userAvatar: story.userAvatar,
+    type: "anonymous_qa",
+    sharedAnswerData: {
+      question: questionTitle,
+      answerText: answer.text,
+      anonymousLabel: answer.anonymousLabel,
+      originalStoryId: story.id,
+      stickerStyle: backgroundPreset || story.anonymousPrompt?.stickerStyle || "ngl-gradient"
+    },
+    reactions: {},
+    comments: [],
+    viewers: [],
+    duration: 7,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  };
+
+  answer.isSharedToStory = true;
+  answer.sharedStoryId = newStory.id;
+
+  store.stories.unshift(newStory);
+  saveStore();
+
+  broadcastEvent("story_created", newStory);
+  broadcastEvent("story_anonymous_answer_shared", { storyId: id, answerId, sharedStoryId: newStory.id });
+
+  return res.json({ success: true, story: newStory });
+});
+
+// 8. Delete Story Comment
+app.delete("/api/stories/:id/comments/:commentId", (req: Request, res: Response) => {
+  const { id, commentId } = req.params;
+  const userId = req.query.userId as string;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  const commentIndex = story.comments.findIndex((c) => c.id === commentId);
+  if (commentIndex === -1) {
+    return res.status(404).json({ error: "Comment not found." });
+  }
+
+  const comment = story.comments[commentIndex];
+  if (userId && comment.userId !== userId && story.userId !== userId) {
+    return res.status(403).json({ error: "Not authorized to delete this comment." });
+  }
+
+  story.comments.splice(commentIndex, 1);
+  saveStore();
+
+  broadcastEvent("story_comment_deleted", { storyId: id, commentId });
+
+  return res.json({ success: true });
+});
+
+// 9. Share story snapshot directly to chat conversation
+app.post("/api/stories/:id/share-to-chat", (req: Request, res: Response) => {
+  const { id } = req.params;
+  let { conversationId, targetUserId, senderId, customNote } = req.body;
+
+  if (!store.stories) store.stories = [];
+  const story = store.stories.find((s) => s.id === id);
+
+  if (!story) {
+    return res.status(404).json({ error: "Story not found." });
+  }
+
+  const sender = store.users.find((u) => u.id === senderId);
+  if (!sender) {
+    return res.status(400).json({ error: "Invalid sender." });
+  }
+
+  // If no conversationId but targetUserId is provided, find or create DM conversation
+  if (!conversationId && targetUserId) {
+    let dmConv = store.conversations.find(
+      (c) =>
+        c.type === "dm" &&
+        c.participants.includes(senderId) &&
+        c.participants.includes(targetUserId)
+    );
+    if (!dmConv) {
+      dmConv = {
+        id: "conv_dm_" + Math.random().toString(36).substring(2, 10),
+        type: "dm",
+        participants: [senderId, targetUserId],
+        updatedAt: new Date().toISOString()
+      };
+      store.conversations.push(dmConv);
+      broadcastEvent("conversation_created", dmConv);
+    }
+    conversationId = dmConv.id;
+  }
+
+  if (!conversationId) {
+    return res.status(400).json({ error: "conversationId or targetUserId is required." });
+  }
+
+  const storySnippet = story.caption || story.textContent || (story.anonymousPrompt ? story.anonymousPrompt.question : "Story Snapshot");
+  const shareText = customNote
+    ? `${customNote}\n\n📱 Shared @${story.userName}'s story`
+    : `Shared @${story.userName}'s story: "${storySnippet}" 📱✨`;
+
+  const newMsg: Message = {
+    id: "msg_story_share_" + Math.random().toString(36).substring(2, 11),
+    conversationId,
+    senderId,
+    senderName: sender.username,
+    senderAvatar: sender.avatar,
+    text: shareText,
+    type: story.type === "video" ? "video" : story.type === "image" ? "image" : "text",
+    mediaUrl: story.mediaUrl,
+    reactions: {},
+    likes: [],
+    replyTo: {
+      id: story.id,
+      senderName: story.userName,
+      text: storySnippet,
+      type: "story"
+    },
+    createdAt: new Date().toISOString()
+  };
+
+  store.messages.push(newMsg);
+  const conv = store.conversations.find((c) => c.id === conversationId);
+  if (conv) {
+    conv.lastMessage = {
+      text: shareText,
+      senderId,
+      senderName: sender.username,
+      createdAt: newMsg.createdAt
+    };
+    conv.updatedAt = newMsg.createdAt;
+  }
+
+  saveStore();
+  broadcastEvent("new_message", newMsg);
+
+  return res.json({ success: true, message: newMsg, conversationId });
 });
 
 // Fallback 404 for unhandled API routes

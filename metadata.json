@@ -1,6 +1,6 @@
 {
   "name": "Wavegram",
-  "description": "Next-generation messaging app with real-time chats, private profiles, chat invitations, credential privacy controls, voice/video calls, groups, custom avatars, GIFs, rich reactions, and analytics.",
+  "description": "Next-generation messaging app with real-time chats, 24h photo & 60s video Stories with advanced montage studio, typography models, emoji reactions, threaded comments, private profiles, chat invitations, and voice/video calls.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

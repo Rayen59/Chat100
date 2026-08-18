@@ -185,3 +185,162 @@ export interface StickerItem {
   outlineStyle?: "white" | "cyan" | "gold" | "none";
   caption?: string;
 }
+
+export interface StoryComment {
+  id: string;
+  storyId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  text: string;
+  createdAt: string;
+  parentId?: string; // For nested reply threads
+  replyToUserName?: string;
+  likes?: string[]; // user IDs who liked the comment
+}
+
+export interface StoryViewer {
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  viewedAt: string;
+  reaction?: string;
+}
+
+export interface StoryStickerOverlay {
+  id: string;
+  emoji?: string;
+  url?: string;
+  x: number; // percentage (0-100)
+  y: number; // percentage (0-100)
+  scale: number;
+  rotation: number;
+}
+
+export interface StoryTextOverlay {
+  id: string;
+  text: string;
+  color?: string;
+  background?: string;
+  x: number; // percentage (0-100)
+  y: number; // percentage (0-100)
+  scale?: number;
+  font?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  bgStyle?: string;
+  align?: string;
+  shadow?: boolean;
+}
+
+export interface StoryMediaMontage {
+  filter: 'none' | 'vivid' | 'cyberpunk' | 'vintage' | 'noir' | 'sunset' | 'glacier' | 'dramatic' | 'golden' | 'retro_vhs';
+  brightness: number; // 50 - 150 (default 100)
+  contrast: number; // 50 - 150 (default 100)
+  saturation: number; // 0 - 200 (default 100)
+  sepia: number; // 0 - 100 (default 0)
+  blur: number; // 0 - 10 (default 0)
+  hueRotate: number; // 0 - 360 (default 0)
+  aspectRatio: '9:16' | '1:1' | '4:5' | 'free';
+  videoTrimStart?: number; // seconds
+  videoTrimEnd?: number; // seconds (max 60)
+  videoSpeed?: number; // 0.5, 1, 1.25, 1.5, 2
+  isMuted?: boolean;
+  stickers?: StoryStickerOverlay[];
+  textOverlays?: StoryTextOverlay[];
+  drawingDataUrl?: string;
+}
+
+export type StoryTypographyTemplate =
+  | 'lite_minimal'
+  | 'neon_glow'
+  | 'editorial_serif'
+  | 'gradient_bold'
+  | 'typewriter'
+  | 'cyberpunk'
+  | 'golden_luxury'
+  | 'midnight_poetry'
+  | 'breaking_news';
+
+export interface StoryTextStyle {
+  template: StoryTypographyTemplate;
+  backgroundGradient: string;
+  textColor: string;
+  fontSize: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  textAlign: 'left' | 'center' | 'right';
+  fontFamily: string;
+  highlightCard?: boolean;
+}
+
+export interface StoryTag {
+  id: string;
+  type: 'user' | 'hashtag' | 'location' | 'music';
+  label: string;
+  value: string;
+  userId?: string;
+}
+
+export interface StoryAnonymousPrompt {
+  id: string;
+  question: string; // e.g. "Send me anonymous messages!", "Ask me anything honestly 🤫"
+  stickerStyle?: "ngl-gradient" | "neon-cyan" | "gold-luxury" | "dark-glass" | "bubble-gum";
+  themeColor?: string;
+  placeholder?: string;
+}
+
+export interface StoryAnonymousAnswer {
+  id: string;
+  storyId: string;
+  text: string;
+  createdAt: string;
+  anonymousLabel: string; // e.g. "Anonymous #1", "Secret Admirer", "Mysterious Friend"
+  isSharedToStory?: boolean;
+  sharedStoryId?: string;
+}
+
+export interface StorySharedAnswerData {
+  question: string;
+  answerText: string;
+  anonymousLabel: string;
+  originalStoryId?: string;
+  stickerStyle?: string;
+}
+
+export interface Story {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  type: 'image' | 'video' | 'text' | 'anonymous_qa';
+  mediaUrl?: string;
+  videoDuration?: number; // max 60s
+  textContent?: string;
+  textStyle?: StoryTextStyle;
+  caption?: string;
+  montage?: StoryMediaMontage;
+  tags?: StoryTag[];
+  location?: string;
+  music?: {
+    title: string;
+    artist: string;
+    previewUrl?: string;
+  };
+  anonymousPrompt?: StoryAnonymousPrompt;
+  anonymousAnswers?: StoryAnonymousAnswer[];
+  sharedAnswerData?: StorySharedAnswerData;
+  reactions: { [emoji: string]: string[] }; // emoji -> array of userIds
+  comments: StoryComment[];
+  viewers: StoryViewer[];
+  duration: number; // in seconds (for display slide duration)
+  createdAt: string;
+  expiresAt: string;
+  isEdited?: boolean;
+  editedAt?: string;
+}
+
+export interface UserStoriesGroup {
+  user: User;
+  stories: Story[];
+  hasUnviewed: boolean;
+  lastUpdated: string;
+}

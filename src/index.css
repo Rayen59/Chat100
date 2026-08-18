@@ -66,6 +66,25 @@
   }
 }
 
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -180px) scale(1.4) rotate(12deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -360px) scale(1.8) rotate(-15deg);
+  }
+}
+
+.animate-float-up {
+  animation: floatUp 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .animate-feather-float {
   animation: featherFloat 4s ease-in-out infinite;
 }
