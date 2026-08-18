@@ -528,7 +528,7 @@ app.post("/api/auth/login", (req: Request, res: Response) => {
 
 // 4. Update Profile
 app.post("/api/users/profile", (req: Request, res: Response) => {
-  const { userId, username, avatar, bio, isPrivate, hideEmail } = req.body;
+  const { userId, username, avatar, bio, isPrivate, hideEmail, closeFriendsUserIds } = req.body;
   const user = store.users.find((u) => u.id === userId);
   if (!user) {
     return res.status(404).json({ error: "User not found." });
@@ -539,11 +539,33 @@ app.post("/api/users/profile", (req: Request, res: Response) => {
   if (bio !== undefined) user.bio = bio;
   if (isPrivate !== undefined) user.isPrivate = isPrivate;
   if (hideEmail !== undefined) user.hideEmail = hideEmail;
+  if (closeFriendsUserIds !== undefined && Array.isArray(closeFriendsUserIds)) {
+    user.closeFriendsUserIds = closeFriendsUserIds;
+  }
 
   saveStore();
   broadcastEvent("user_updated", user);
 
   return res.json({ user });
+});
+
+// 4a. Close Friends Management Endpoint
+app.post("/api/users/close-friends", (req: Request, res: Response) => {
+  const { userId, closeFriendsUserIds } = req.body;
+  if (!userId || !Array.isArray(closeFriendsUserIds)) {
+    return res.status(400).json({ error: "userId and closeFriendsUserIds array are required." });
+  }
+
+  const user = store.users.find((u) => u.id === userId);
+  if (!user) {
+    return res.status(404).json({ error: "User not found." });
+  }
+
+  user.closeFriendsUserIds = closeFriendsUserIds;
+  saveStore();
+  broadcastEvent("user_updated", user);
+
+  return res.json({ success: true, closeFriendsUserIds: user.closeFriendsUserIds });
 });
 
 // 4b. Chat Request Endpoints (Invitations for Private Profiles)
@@ -1032,49 +1054,64 @@ async function triggerWiaAiResponse(conv: Conversation, userMsg: Message, sender
     // Clean tag prefix e.g. @wia, @lia, @Meta AI, @meta, @ai, @bot
     let prompt = rawText.replace(/@(wia|lia|meta\s*ai|Meta\s*AI|meta|Meta|ai|AI|bot|Bot|gemini|Gemini)\b/gi, "").trim();
     if (!prompt) {
-      prompt = "Hello! What can you help me with?";
+      prompt = "Hello! Tell me what you can do and how we can collaborate.";
     }
 
-    // Get previous 12 messages for rich multi-turn contextual memory
-    const recentMessages = store.messages
+    // Get previous 16 messages for rich multi-turn conversational context
+    const previousConversationMessages = store.messages
       .filter((m) => m.conversationId === conv.id && m.id !== userMsg.id)
-      .slice(-12)
-      .map((m) => `${m.senderName === WIA_AI_USER.username ? "Wia AI" : m.senderName}: ${m.text || `[${m.type}]`}`)
-      .join("\n");
+      .slice(-16);
 
-    const systemInstruction = `You are Wia AI / Lia (the intelligent conversational AI assistant inside Wavegram, similar to Meta AI).
-You provide complete, thoughtful, intelligent, and helpful responses in whatever language the user talks to you in:
-- Multi-language mastery: English, French, Arabic (Standard & Tunisian Derja), Spanish, German, Italian, etc.
-- If the user asks in French, reply naturally in French. If the user asks in Arabic/Tunisian, reply in Arabic/Tunisian. If in English, reply in English.
-- Always provide substantive, helpful, and friendly answers (explain concepts thoroughly, write clean code with markdown, solve math, translate accurately, summarize text, or chat warmly).
-- Avoid repetitive or single-word canned answers. Maintain continuity with the chat history.
-- Personality: Witty, warm, encouraging, smart, and concise yet comprehensive with relevant emojis (⚡, ✨, 💡, 🚀, 👏, 🔥).`;
-
-    const chatContextPrompt = recentMessages
-      ? `Conversation History:\n${recentMessages}\n\nCurrent User ${sender.username}: ${prompt}\n\nPlease provide your helpful and detailed response as Wia AI:`
-      : `User ${sender.username} asks: ${prompt}\n\nPlease provide your helpful and detailed response as Wia AI:`;
+    const systemInstruction = `You are Wia AI (also known as Lia), the premier intelligent AI assistant embedded directly inside Wavegram (similar to Meta AI).
+Your mission is to provide exceptionally helpful, deeply insightful, articulate, and conversational responses in whatever language the user initiates or prefers:
+- Fluent in all languages: English, French, Arabic (Modern Standard & Dialects including Tunisian, Moroccan, Algerian, Egyptian, Levantine, Gulf), Spanish, German, Italian, Portuguese, Japanese, Chinese, etc.
+- If the user writes in English, reply in natural, polished English. If in French, reply in French. If in Arabic or Derja, reply in Arabic/Derja.
+- Provide comprehensive, structured, and multi-paragraph answers when needed (with clear Markdown headings, bullet points, code blocks, and examples).
+- For coding queries: write complete, modern, error-free TypeScript/React/Python snippets with explanations.
+- For brainstorming & stories: provide creative ideas, hooks, hashtags, and aesthetic tips.
+- For conversations: be warm, witty, encouraging, and ask engaging follow-up questions to keep the discussion fruitful.
+- Maintain continuity with the prior messages in this conversation.`;
 
     let replyText = "";
     if (process.env.GEMINI_API_KEY) {
       try {
+        // Build multi-turn contents
+        const geminiContents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+
+        // Add previous message turns
+        previousConversationMessages.forEach((m) => {
+          const role = m.senderId === WIA_AI_USER.id ? "model" : "user";
+          const text = m.text || `[${m.type}]`;
+          if (text && text.trim()) {
+            geminiContents.push({
+              role,
+              parts: [{ text: `${m.senderName === WIA_AI_USER.username ? "" : `@${m.senderName}: `}${text}` }]
+            });
+          }
+        });
+
+        // Add current user prompt
+        geminiContents.push({
+          role: "user",
+          parts: [{ text: `@${sender.username}: ${prompt}` }]
+        });
+
         const response = await ai.models.generateContent({
           model: "gemini-2.5-flash",
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `${systemInstruction}\n\n${chatContextPrompt}` }]
-            }
-          ]
+          contents: geminiContents,
+          config: {
+            systemInstruction
+          }
         });
         replyText = response.text || "";
       } catch (geminiErr) {
-        console.error("Gemini API call failed, generating smart contextual fallback:", geminiErr);
-        replyText = generateSmartFallbackReply(prompt, sender.username);
+        console.error("Gemini API call failed, generating comprehensive smart fallback:", geminiErr);
+        replyText = generateSmartFallbackReply(prompt, sender.username, conv);
       }
     }
 
     if (!replyText || replyText.trim().length === 0) {
-      replyText = generateSmartFallbackReply(prompt, sender.username);
+      replyText = generateSmartFallbackReply(prompt, sender.username, conv);
     }
 
     const aiMessage: Message = {
@@ -1099,7 +1136,7 @@ You provide complete, thoughtful, intelligent, and helpful responses in whatever
     store.messages.push(aiMessage);
 
     conv.lastMessage = {
-      text: replyText.trim(),
+      text: replyText.trim().slice(0, 100) + (replyText.length > 100 ? "..." : ""),
       senderId: WIA_AI_USER.id,
       senderName: WIA_AI_USER.username,
       createdAt: aiMessage.createdAt
@@ -1110,7 +1147,7 @@ You provide complete, thoughtful, intelligent, and helpful responses in whatever
     broadcastEvent("new_message", aiMessage);
   } catch (err: any) {
     console.error("Error generating Wia AI response:", err);
-    const fallbackText = generateSmartFallbackReply(userMsg.text || "hello", sender.username);
+    const fallbackText = generateSmartFallbackReply(userMsg.text || "hello", sender.username, conv);
     const errMessage: Message = {
       id: "msg_wia_fb_" + Math.random().toString(36).substring(2, 10),
       conversationId: conv.id,
@@ -1129,8 +1166,8 @@ You provide complete, thoughtful, intelligent, and helpful responses in whatever
   }
 }
 
-// Smart contextual offline / fallback response generator for Wia/Lia AI
-function generateSmartFallbackReply(prompt: string, username: string): string {
+// Smart contextual comprehensive fallback response generator for Wia/Lia AI
+function generateSmartFallbackReply(prompt: string, username: string, conv?: Conversation): string {
   const p = prompt.toLowerCase();
 
   // Math expressions
@@ -1140,63 +1177,46 @@ function generateSmartFallbackReply(prompt: string, username: string): string {
       const sanitized = mathMatch[0].replace(/[^0-9\+\-\*\/\.]/g, "");
       // eslint-disable-next-line no-eval
       const result = Function(`'use strict'; return (${sanitized})`)();
-      return `🔢 **Calcul rapide**: ${mathMatch[0]} = **${result}** ✨\n\nN'hésite pas si tu as d'autres calculs ou équations à résoudre !`;
+      return `🔢 **Quick Calculation for @${username}**:\n\n**${mathMatch[0]}** = **${result}** ✨\n\nNeed help with advanced formulas, algebra, or multi-step equations? Just write them out and I'll calculate or explain them step by step!`;
     } catch (e) {}
   }
 
   // Code & Programming
-  if (p.includes("code") || p.includes("javascript") || p.includes("typescript") || p.includes("python") || p.includes("react") || p.includes("html") || p.includes("css")) {
-    return `💻 **Assistance Code pour @${username}** :\n\nJe peux t'aider à écrire, déboguer et optimiser ton code en TypeScript, Python, React et plus encore !\n\nVoici un exemple d'astuce rapide :\n\`\`\`typescript\n// Exemple de fonction async moderne\nasync function fetchWavegramData<T>(endpoint: string): Promise<T> {\n  const res = await fetch(endpoint);\n  if (!res.ok) throw new Error("Request error");\n  return res.json();\n}\n\`\`\`\nDis-moi quelle fonctionnalité ou quel bug tu souhaites traiter ! 🚀`;
+  if (p.includes("code") || p.includes("javascript") || p.includes("typescript") || p.includes("python") || p.includes("react") || p.includes("html") || p.includes("css") || p.includes("bug") || p.includes("api")) {
+    return `💻 **Engineering & Code Assistant for @${username}**\n\nI can write, inspect, and optimize modern code across **TypeScript, React, Python, Node.js, and SQL**.\n\nHere is a modern example pattern for stateful WebSocket events:\n\`\`\`typescript\n// Example: Real-time Event Broadcaster\nexport function broadcastAppEvent(eventType: string, payload: Record<string, any>) {\n  const eventPayload = {\n    type: eventType,\n    data: payload,\n    timestamp: new Date().toISOString()\n  };\n  activeClients.forEach((client) => client.send(JSON.stringify(eventPayload)));\n}\n\`\`\`\n\nWhat specific component, algorithm, or bug would you like to build or troubleshoot? 🚀`;
   }
 
   // Translation requests
   if (p.includes("traduis") || p.includes("traduire") || p.includes("translate") || p.includes("traduction")) {
-    return `🌍 **Traducteur Multilingue Wavegram** :\n\nJe maîtrise parfaitement l'anglais, le français, l'arabe (littéraire et dialectes comme le tunisien), l'espagnol, et bien d'autres langues. Envoie-moi le texte que tu souhaites traduire et la langue cible ! ⚡`;
+    return `🌍 **Wavegram Multilingual Translation Engine**\n\nI support continuous high-accuracy translation across:\n- **English, French, Spanish, German, Italian, Portuguese**\n- **Arabic (Standard & Dialects: Tunisian, Egyptian, Moroccan, Levantine)**\n- **Japanese, Korean, Chinese**\n\n👉 Send me any text or voice transcript and tell me your desired target language! ⚡`;
   }
 
   // French queries
   if (p.includes("bonjour") || p.includes("salut") || p.includes("ca va") || p.includes("ça va") || p.includes("coucou") || p.includes("wesh")) {
-    return `Salut @${username} ! 👋 Je suis **Wia AI (Lia)**, ton assistante intelligente sur Wavegram. Je vais super bien et je suis à ton entière disposition ! Que veux-tu explorer aujourd'hui ? ⚡✨`;
+    return `Salut @${username} ! 👋 Je suis **Wia AI (Lia)**, ton assistante intelligente sur Wavegram. Je vais super bien et je suis ravie de discuter avec toi ! 😊\n\nVoici quelques idées de ce que nous pouvons faire ensemble :\n- 💡 Brainstormer des concepts ou des stories créatives\n- 📝 Rédiger ou corriger des textes et emails\n- 💻 Écrire et déboguer du code\n- 🌐 Traduire vers n'importe quelle langue\n\nDis-moi, sur quoi travailles-tu en ce moment ? ✨⚡`;
   }
   if (p.includes("qui es-tu") || p.includes("t'es qui") || p.includes("qui est tu") || p.includes("c'est quoi") || p.includes("presente toi")) {
-    return `Je suis **Wia AI** (ou **Lia**), ton assistante IA native intégrée à Wavegram ! 🚀\n\nVoici ce que je peux faire pour toi :\n- 💬 Répondre à toutes tes questions et discuter dans toutes les langues\n- 📝 Rédiger des textes, résumés, emails et histoires\n- 💻 Écrire et corriger du code\n- 🎨 Donner des idées pour tes stories et tes posts\n- 🌐 Traduire instantanément\n\nTague-moi avec \`@wia\` ou \`@lia\` dès que tu as besoin de moi ! ✨`;
-  }
-  if (p.includes("merci") || p.includes("bravo") || p.includes("super") || p.includes("parfait") || p.includes("top")) {
-    return `Avec grand plaisir @${username} ! 😊 C'est toujours un plaisir de t'aider sur Wavegram. N'hésite pas si tu as d'autres questions ou des idées à développer ! 🌟`;
-  }
-  if (p.includes("blague") || p.includes("raconte") || p.includes("drole") || p.includes("humour")) {
-    const jokes = [
-      "Pourquoi les plongeurs plongent-ils toujours en arrière et jamais en avant ? 🤿 ... Parce que sinon ils tombent dans le bateau ! 😂🚤",
-      "Quel est le comble pour un électricien ? ⚡ ... De ne pas être au courant ! 💡😂",
-      "Pourquoi les développeurs détestent la nature ? 💻 ... Parce qu'il y a trop de bugs ! 🐛🌳"
-    ];
-    return jokes[Math.floor(Math.random() * jokes.length)];
+    return `Je suis **Wia AI** (ou **Lia**), l'intelligence artificielle native de Wavegram ! 🚀\n\nMon rôle est de t'accompagner au quotidien pour :\n1. 💬 Répondre à toutes tes questions en détail et sans interruption\n2. 📝 Rédiger du contenu de haute qualité (histoires, résumés, légendes de stories)\n3. 💻 T'assister en développement (TypeScript, React, Python, etc.)\n4. 🌍 Traduire instantanément dans plus de 50 langues\n\nTu peux me poser n'importe quelle question directement ici ou me mentionner dans n'importe quel groupe avec \`@wia\` ou \`@lia\` ! 🔥✨`;
   }
 
   // Arabic / Tunisian queries
   if (p.includes("marhaba") || p.includes("aslema") || p.includes("ahla") || p.includes("salam") || p.includes("مرحبا") || p.includes("سلام") || p.includes("عسلامة") || p.includes("شحوالك")) {
-    return `أهلاً وسهلاً بيك @${username}! 👋 أنا **Wia AI (ليا)**، المساعدة الذكية متاعك في Wavegram. شحوالك وشنوّة نجم نعاونك اليوم؟ ⚡✨`;
+    return `أهلاً وسهلاً بيك @${username}! 👋 أنا **Wia AI (ليا)**، المساعدة الذكية متاعك في Wavegram. شحوالك وشنوّة أخبارك اليوم؟ 😊\n\nتنجم تسألني على أي حاجة تحبها: كتابة كود، ترجمة، أفكار للستوريات، تلخيص مقالات ولا حتى دردشة عادية! شنوّة تحب نعملو توا؟ ⚡✨`;
   }
   if (p.includes("chkoun") || p.includes("chkoun enti") || p.includes("من انت") || p.includes("شكونك") || p.includes("شنوة تنجم تعمل")) {
-    return `أنا **Wia AI** 🚀 الذكاء الاصطناعي الخاص بـ Wavegram! تنجم تسألني على أي موضوع، نكتبلك كود، نترجملك لأي لغة (عربي، تونسي، فرنسي، أنغليزي)، ولا نعطيك أفكار للـ Stories والرسائل متاعك! طاڨيني بـ \`@wia\` ولا \`@lia\` في أي وقت! 🔥✨`;
+    return `أنا **Wia AI** 🚀 الذكاء الاصطناعي الخاص بـ Wavegram!\n\nنجم نعاونك في برشا حاجات:\n- 💡 نجاوب على أي سؤال بتفصيل ووضوح\n- 💻 نكتبلك ونصلحلك كود برمجي (React, Python, TypeScript...)\n- 🌍 نترجملك لأي لغة (تونسي، عربي، فرنسي، أنغليزي...)\n- 🎨 نعطيك أفكار باهية للـ Stories والمحادثات متاعك\n\nطاڨيني بـ \`@wia\` ولا \`@lia\` في أي شات وأنا ديما حاضر! 🔥✨`;
   }
 
-  // English queries
+  // English queries & General
   if (p.includes("hello") || p.includes("hi") || p.includes("hey") || p.includes("what's up") || p.includes("whats up")) {
-    return `Hey @${username}! 👋 I'm **Wia AI (Lia)**, your official intelligent AI assistant on Wavegram. How can I help boost your productivity or spark your creativity today? ⚡✨`;
+    return `Hey @${username}! 👋 I'm **Wia AI (Lia)**, your dedicated conversational AI assistant on Wavegram.\n\nI'm here to help you brainstorm, code, translate, summarize articles, generate story captions, and answer any complex questions you have.\n\nWhat would you like to explore or work on today? ⚡✨`;
   }
   if (p.includes("who are you") || p.includes("what are you") || p.includes("what can you do")) {
-    return `I am **Wia AI** 🚀 (powered by Gemini models inside Wavegram)!\n\nHere is what I can do for you in real-time:\n- 💡 Answer complex questions and brainstorm creative concepts\n- 🌐 Real-time translation across 50+ languages\n- 💻 Write, inspect, and debug code snippets\n- 📊 Assist with planning, summaries, and stories\n\nMention me anytime using \`@wia\` or \`@lia\` in any chat! ✨`;
-  }
-  if (p.includes("joke") || p.includes("funny")) {
-    return `Why do programmers prefer dark mode? 💻 ... Because light attracts bugs! 🐛😂`;
-  }
-  if (p.includes("thank") || p.includes("thanks")) {
-    return `You're very welcome, @${username}! 🌟 Always happy to help. Let me know whenever you need anything else!`;
+    return `I am **Wia AI** 🚀 (powered by Google Gemini models inside Wavegram)!\n\nHere are some of the key capabilities I provide:\n- 💡 **Deep Q&A & Research**: Comprehensive explanations across technology, science, business, and arts\n- 💻 **Full-Stack Coding**: Debugging, architecture advice, and code samples in React, TypeScript, Python, etc.\n- 🌐 **Fluent Multilingual Translation**: Seamless communication across 50+ languages\n- 🎨 **Creative Studio Support**: Generating ideas, captions, and concepts for your stories and posts\n\nFeel free to ask me anything directly or mention \`@wia\` or \`@lia\` in any conversation! ✨`;
   }
 
-  // General versatile intelligent response
-  return `✨ **Wia AI Assistant**: Hey @${username}! I've processed your message: "${prompt}".\n\nI'm fully active and ready to help you with detailed answers, text formatting, translations, programming help, or story ideas. What would you like to explore next? 🚀`;
+  // General insightful contextual reply
+  return `✨ **Wia AI Assistant**: Hey @${username}!\n\nRegarding your message: **"${prompt}"**\n\nI am fully equipped to assist you with a thorough analysis, code implementation, translation, or creative brainstorming. Feel free to give me more specific details or ask any follow-up question, and I'll break it down for you step-by-step! 🚀`;
 }
 
 // Poll Vote Endpoint
@@ -2281,10 +2301,25 @@ app.get("/api/stories", (req: Request, res: Response) => {
     if (viewerId && Array.isArray(story.hiddenFromUserIds) && story.hiddenFromUserIds.includes(viewerId)) {
       return false;
     }
+
+    const author = store.users.find((u) => u.id === story.userId);
+
+    // If Close Friends Only story:
+    if (story.isCloseFriendsOnly) {
+      if (viewerId && viewerId !== story.userId) {
+        if (!author?.closeFriendsUserIds || !author.closeFriendsUserIds.includes(viewerId)) {
+          return false;
+        }
+      }
+    }
+
     // If author has private profile and viewer is different user
     if (viewerId && viewerId !== story.userId) {
-      const author = store.users.find((u) => u.id === story.userId);
       if (author && author.isPrivate) {
+        // If viewer is blocked by author, hide
+        if (author.blockedUserIds?.includes(viewerId)) {
+          return false;
+        }
         // Must share a direct conversation (contact/DM)
         const hasDirectChat = (store.conversations || []).some(
           (c) => c.type === "dm" && c.participants.includes(viewerId) && c.participants.includes(story.userId)
@@ -2311,6 +2346,7 @@ app.post("/api/stories", (req: Request, res: Response) => {
     textStyle,
     caption,
     captionPosition,
+    isCloseFriendsOnly,
     disableSharing,
     hiddenFromUserIds,
     montage,
@@ -2351,6 +2387,7 @@ app.post("/api/stories", (req: Request, res: Response) => {
     textStyle: textStyle || undefined,
     caption: caption ? caption.trim() : undefined,
     captionPosition: captionPosition || { x: 50, y: 88 },
+    isCloseFriendsOnly: !!isCloseFriendsOnly,
     disableSharing: !!disableSharing,
     hiddenFromUserIds: Array.isArray(hiddenFromUserIds) ? hiddenFromUserIds : [],
     montage: montage || undefined,
@@ -2380,7 +2417,7 @@ app.post("/api/stories", (req: Request, res: Response) => {
 // 3. Edit / Modify story (Creator only)
 app.put("/api/stories/:id", (req: Request, res: Response) => {
   const { id } = req.params;
-  const { userId, caption, captionPosition, disableSharing, hiddenFromUserIds, textContent, textStyle, tags, location, music, montage } = req.body;
+  const { userId, caption, captionPosition, isCloseFriendsOnly, disableSharing, hiddenFromUserIds, textContent, textStyle, tags, location, music, montage } = req.body;
 
   if (!store.stories) store.stories = [];
   const story = store.stories.find((s) => s.id === id);
@@ -2395,6 +2432,7 @@ app.put("/api/stories/:id", (req: Request, res: Response) => {
 
   if (caption !== undefined) story.caption = caption;
   if (captionPosition !== undefined) story.captionPosition = captionPosition;
+  if (isCloseFriendsOnly !== undefined) story.isCloseFriendsOnly = !!isCloseFriendsOnly;
   if (disableSharing !== undefined) story.disableSharing = !!disableSharing;
   if (hiddenFromUserIds !== undefined) story.hiddenFromUserIds = Array.isArray(hiddenFromUserIds) ? hiddenFromUserIds : [];
   if (textContent !== undefined) story.textContent = textContent;

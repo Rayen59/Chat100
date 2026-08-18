@@ -39,7 +39,9 @@ import {
   HeartHandshake,
   EyeOff,
   Shield,
-  Move
+  Move,
+  Star,
+  Users
 } from "lucide-react";
 
 interface StoryCreatorModalProps {
@@ -259,6 +261,15 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
   const [captionPosition, setCaptionPosition] = useState<{ x: number; y: number }>(
     storyToEdit?.captionPosition || { x: 50, y: 84 }
   );
+  const [isCloseFriendsOnly, setIsCloseFriendsOnly] = useState<boolean>(
+    storyToEdit?.isCloseFriendsOnly || false
+  );
+  const [closeFriends, setCloseFriends] = useState<string[]>(
+    currentUser.closeFriendsUserIds || []
+  );
+  const [closeFriendsSearch, setCloseFriendsSearch] = useState("");
+  const [closeFriendsSavedToast, setCloseFriendsSavedToast] = useState("");
+
   const [disableSharing, setDisableSharing] = useState<boolean>(
     storyToEdit?.disableSharing || false
   );
@@ -266,6 +277,27 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
     storyToEdit?.hiddenFromUserIds || []
   );
   const [hideSearch, setHideSearch] = useState("");
+
+  const handleToggleCloseFriend = async (targetUserId: string) => {
+    const updated = closeFriends.includes(targetUserId)
+      ? closeFriends.filter((id) => id !== targetUserId)
+      : [...closeFriends, targetUserId];
+    setCloseFriends(updated);
+    currentUser.closeFriendsUserIds = updated;
+    try {
+      await fetch("/api/users/close-friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id, closeFriendsUserIds: updated })
+      });
+      setCloseFriendsSavedToast(
+        updated.includes(targetUserId) ? "Added to Close Friends ⭐" : "Removed from Close Friends"
+      );
+      setTimeout(() => setCloseFriendsSavedToast(""), 2500);
+    } catch (err) {
+      console.error("Failed to update close friends:", err);
+    }
+  };
 
   const [tags, setTags] = useState<StoryTag[]>(storyToEdit?.tags || []);
   const [locationTag, setLocationTag] = useState<string>(storyToEdit?.location || "");
@@ -653,6 +685,7 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
             userId: currentUser.id,
             caption,
             captionPosition,
+            isCloseFriendsOnly,
             disableSharing,
             hiddenFromUserIds,
             textContent: mode === "text" ? textContent : undefined,
@@ -688,6 +721,7 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
             anonymousPrompt: anonymousPromptData,
             caption,
             captionPosition,
+            isCloseFriendsOnly,
             disableSharing,
             hiddenFromUserIds,
             montage: montageData,
@@ -1105,14 +1139,22 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.username}
-                    className="w-7 h-7 rounded-full border border-white/40 object-cover"
+                    className={`w-7 h-7 rounded-full border object-cover ${
+                      isCloseFriendsOnly ? "border-emerald-400 ring-2 ring-emerald-500/40" : "border-white/40"
+                    }`}
                   />
-                  <span className="text-xs font-semibold text-white truncate max-w-[120px]">
+                  <span className="text-xs font-semibold text-white truncate max-w-[100px]">
                     {currentUser.username}
                   </span>
+                  {isCloseFriendsOnly && (
+                    <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 text-slate-950 font-black text-[10px] flex items-center gap-1 shadow-md shadow-emerald-500/30">
+                      <Star className="w-2.5 h-2.5 fill-slate-950 text-slate-950" />
+                      <span>Close Friends</span>
+                    </span>
+                  )}
                 </div>
                 {locationTag && (
-                  <span className="text-[10px] bg-black/60 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-400/30 truncate max-w-[100px]">
+                  <span className="text-[10px] bg-black/60 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-400/30 truncate max-w-[90px]">
                     {locationTag}
                   </span>
                 )}
@@ -2265,6 +2307,87 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
               {/* TAB: PRIVACY & AUDIENCE CONTROLS */}
               {studioTab === "privacy" && (
                 <div className="flex flex-col gap-4 animate-in fade-in">
+                  {/* Close Friends Toast */}
+                  {closeFriendsSavedToast && (
+                    <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                      <Star className="w-4 h-4 fill-emerald-400 text-emerald-400" />
+                      <span>{closeFriendsSavedToast}</span>
+                    </div>
+                  )}
+
+                  {/* 1. Manage Close Friends List */}
+                  <div className="p-4 rounded-2xl bg-slate-900/90 border border-emerald-950/80 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <Star className="w-4 h-4 fill-emerald-400 text-emerald-400" />
+                        <h4 className="text-xs font-bold text-white">
+                          Manage Close Friends ({closeFriends.length})
+                        </h4>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold">
+                        Green Ring ⭐
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-snug">
+                      Add your closest contacts here. Stories shared to "Close Friends" are only visible to these selected users with an emerald ring.
+                    </p>
+
+                    <input
+                      type="text"
+                      value={closeFriendsSearch}
+                      onChange={(e) => setCloseFriendsSearch(e.target.value)}
+                      placeholder="Search contacts for Close Friends..."
+                      className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-400"
+                    />
+
+                    <div className="max-h-44 overflow-y-auto flex flex-col gap-1.5 pr-1">
+                      {allUsers
+                        .filter((u) => u.id !== currentUser.id)
+                        .filter(
+                          (u) =>
+                            u.username.toLowerCase().includes(closeFriendsSearch.toLowerCase()) ||
+                            (u.email && u.email.toLowerCase().includes(closeFriendsSearch.toLowerCase()))
+                        )
+                        .map((u) => {
+                          const isCF = closeFriends.includes(u.id);
+                          return (
+                            <div
+                              key={u.id}
+                              onClick={() => handleToggleCloseFriend(u.id)}
+                              className={`p-2 rounded-xl flex items-center justify-between cursor-pointer border transition-colors ${
+                                isCF
+                                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
+                                  : "bg-slate-950/60 border-slate-800/80 text-slate-300 hover:border-slate-700"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={u.avatar}
+                                  alt={u.username}
+                                  className="w-6 h-6 rounded-full object-cover border border-white/10"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-semibold">{u.username}</span>
+                                  <span className="text-[10px] text-slate-400">{u.status || "online"}</span>
+                                </div>
+                              </div>
+                              <div
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+                                  isCF
+                                    ? "bg-emerald-500 text-slate-950 shadow-sm shadow-emerald-500/30"
+                                    : "bg-slate-800 border border-slate-700 text-slate-400 hover:text-white"
+                                }`}
+                              >
+                                <Star className={`w-3 h-3 ${isCF ? "fill-slate-950 text-slate-950" : "text-slate-400"}`} />
+                                <span>{isCF ? "Added" : "Add"}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  {/* 2. Disable Sharing in Chats */}
                   <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5">
@@ -2273,7 +2396,7 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                         </div>
                         <div>
                           <h4 className="text-xs font-bold text-white">
-                            Disable Story Sharing in Chats
+                            Block Story Sharing in Chats
                           </h4>
                           <p className="text-[11px] text-slate-400 leading-snug">
                             When enabled, other users cannot forward or send your story into direct or group chats.
@@ -2296,13 +2419,23 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Hide from specific users */}
+                  {/* 3. Hide from specific users */}
                   <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-3">
-                    <div className="flex items-center gap-2 text-cyan-400">
-                      <EyeOff className="w-4 h-4" />
-                      <h4 className="text-xs font-bold text-white">
-                        Hide Story from Specific Users ({hiddenFromUserIds.length})
-                      </h4>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-cyan-400">
+                        <EyeOff className="w-4 h-4" />
+                        <h4 className="text-xs font-bold text-white">
+                          Hide Story from Specific Users ({hiddenFromUserIds.length})
+                        </h4>
+                      </div>
+                      {hiddenFromUserIds.length > 0 && (
+                        <button
+                          onClick={() => setHiddenFromUserIds([])}
+                          className="text-[10px] text-red-400 hover:text-red-300 font-medium"
+                        >
+                          Clear Hidden List
+                        </button>
+                      )}
                     </div>
                     <p className="text-[11px] text-slate-400">
                       Selected contacts will not be able to view this story anywhere in their feed or profile.
@@ -2316,13 +2449,13 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                       className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-400"
                     />
 
-                    <div className="max-h-48 overflow-y-auto flex flex-col gap-1.5 pr-1">
+                    <div className="max-h-44 overflow-y-auto flex flex-col gap-1.5 pr-1">
                       {allUsers
                         .filter((u) => u.id !== currentUser.id)
                         .filter(
                           (u) =>
                             u.username.toLowerCase().includes(hideSearch.toLowerCase()) ||
-                            (u.name && u.name.toLowerCase().includes(hideSearch.toLowerCase()))
+                            (u.email && u.email.toLowerCase().includes(hideSearch.toLowerCase()))
                         )
                         .map((u) => {
                           const isHidden = hiddenFromUserIds.includes(u.id);
@@ -2350,17 +2483,23 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                                 />
                                 <div className="flex flex-col">
                                   <span className="text-xs font-semibold">{u.username}</span>
-                                  {u.name && <span className="text-[10px] text-slate-400">{u.name}</span>}
                                 </div>
                               </div>
                               <div
-                                className={`w-4 h-4 rounded-md border flex items-center justify-center ${
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 ${
                                   isHidden
-                                    ? "bg-red-500 border-red-400 text-white"
-                                    : "border-slate-600 bg-slate-800"
+                                    ? "bg-red-500 text-white"
+                                    : "border border-slate-700 bg-slate-800 text-slate-400"
                                 }`}
                               >
-                                {isHidden && <Check className="w-3 h-3" />}
+                                {isHidden ? (
+                                  <>
+                                    <Check className="w-3 h-3 stroke-[3]" />
+                                    <span>Hidden</span>
+                                  </>
+                                ) : (
+                                  <span>Hide</span>
+                                )}
                               </div>
                             </div>
                           );
@@ -2370,30 +2509,67 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                 </div>
               )}
 
-              {/* Bottom Caption & Publish Bar */}
+              {/* Bottom Caption & Audience Publish Bar */}
               <div className="mt-auto pt-4 border-t border-blue-950/80 flex flex-col gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                    Story Caption
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Story Caption
+                    </label>
+                    <span className="text-[10px] text-cyan-400">
+                      Drag caption on preview to move
+                    </span>
+                  </div>
                   <input
                     type="text"
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
                     placeholder="Write a captivating story caption..."
-                    className="w-full mt-1.5 p-3 rounded-2xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full p-3 rounded-2xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-slate-400">
+                {/* Audience Selection Pills */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 shrink-0">Audience:</span>
+                  <div className="flex items-center gap-2 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsCloseFriendsOnly(false)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        !isCloseFriendsOnly
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/30 border border-blue-400/40"
+                          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Your Story</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCloseFriendsOnly(true)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        isCloseFriendsOnly
+                          ? "bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black shadow-md shadow-emerald-500/30 border border-emerald-400/60"
+                          : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-emerald-300"
+                      }`}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${isCloseFriendsOnly ? "fill-slate-950 text-slate-950" : "text-emerald-400"}`} />
+                      <span>Close Friends ({closeFriends.length})</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] text-slate-400">
                     Stories automatically expire after 24 hours.
                   </span>
 
                   <div className="flex items-center gap-2">
                     <button
                       onClick={onClose}
-                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                     >
                       Cancel
                     </button>
@@ -2401,7 +2577,11 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                       id="publish-story-btn"
                       onClick={handlePublishStory}
                       disabled={isSubmitting}
-                      className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50 transition-all"
+                      className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 transition-all ${
+                        isCloseFriendsOnly
+                          ? "bg-gradient-to-r from-emerald-400 via-green-500 to-lime-400 text-slate-950 font-black shadow-emerald-500/25 hover:brightness-110"
+                          : "bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-cyan-500/20"
+                      }`}
                     >
                       {isSubmitting ? (
                         <>
@@ -2410,8 +2590,18 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4" />
-                          <span>{isEditing ? "Save Modifications" : "Publish Story"}</span>
+                          {isCloseFriendsOnly ? (
+                            <Star className="w-4 h-4 fill-slate-950 text-slate-950" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                          <span>
+                            {isEditing
+                              ? "Save Modifications"
+                              : isCloseFriendsOnly
+                              ? "Share to Close Friends"
+                              : "Publish Story"}
+                          </span>
                         </>
                       )}
                     </button>

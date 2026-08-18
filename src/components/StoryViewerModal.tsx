@@ -32,7 +32,8 @@ import {
   Lock,
   Inbox,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  Star
 } from "lucide-react";
 import { ShareStoryModal } from "./ShareStoryModal";
 
@@ -109,6 +110,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   // Playback & progress timer state
   const [progress, setProgress] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [pauseToast, setPauseToast] = useState<string>("");
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [videoSpeed, setVideoSpeed] = useState<number>(1);
   const [isHolding, setIsHolding] = useState<boolean>(false);
@@ -213,7 +215,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     }, 180);
   };
 
-  const endPress = (side: "left" | "right") => {
+  const endPress = (zone: "left" | "middle" | "right") => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
@@ -222,17 +224,27 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     setIsHolding(false);
     isHoldingRef.current = false;
 
-    // If held for >= 180ms or flagged as long press, pause occurred - do not jump to next/prev slide
+    // If held for >= 180ms or flagged as long press, hold pause occurred - do not navigate on release
     if (isLongPressRef.current || pressDuration >= 180) {
       isLongPressRef.current = false;
       return;
     }
 
-    // Quick tap: left = previous story, right = next story
-    if (side === "left") {
+    // Single click / single tap dispatching:
+    if (zone === "left") {
+      // Left side: Previous story
       handlePrevSlide();
-    } else {
+    } else if (zone === "right") {
+      // Right side: Next story
       handleNextSlide();
+    } else {
+      // Middle zone: Toggle pause / play with immediate visual feedback
+      setIsPaused((prev) => {
+        const nextState = !prev;
+        setPauseToast(nextState ? "Paused ⏸️" : "Playing ▶️");
+        setTimeout(() => setPauseToast(""), 1100);
+        return nextState;
+      });
     }
   };
 
@@ -791,10 +803,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         ))}
 
         {/* ==================================================== */}
-        {/* INTERACTIVE TAP ZONES (Left = Prev, Right = Next, Hold = Pause) */}
+        {/* INTERACTIVE TAP ZONES (Left = Prev, Center = Pause/Play, Right = Next, Hold = Pause) */}
         {/* ==================================================== */}
         <div className="absolute inset-0 flex z-10 select-none">
-          {/* Left Zone: Click for previous story, Hold to Pause */}
+          {/* Left Zone (30%): Single tap for previous story, Hold to Pause */}
           <div
             onMouseDown={startPress}
             onMouseUp={() => endPress("left")}
@@ -805,11 +817,26 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             }}
             onTouchStart={startPress}
             onTouchEnd={() => endPress("left")}
-            className="w-1/2 h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
-            title="Click left for previous story, hold to pause"
+            className="w-[30%] h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
+            title="Single tap left: Previous story • Hold: Pause"
           />
 
-          {/* Right Zone: Click for next story, Hold to Pause */}
+          {/* Center Zone (40%): Single tap for pause / resume, Hold to Pause */}
+          <div
+            onMouseDown={startPress}
+            onMouseUp={() => endPress("middle")}
+            onMouseLeave={() => {
+              if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+              setIsHolding(false);
+              isHoldingRef.current = false;
+            }}
+            onTouchStart={startPress}
+            onTouchEnd={() => endPress("middle")}
+            className="w-[40%] h-full cursor-pointer hover:bg-white/[0.02] transition-colors flex items-center justify-center"
+            title="Single tap center: Pause / Resume • Hold: Pause"
+          />
+
+          {/* Right Zone (30%): Single tap for next story, Hold to Pause */}
           <div
             onMouseDown={startPress}
             onMouseUp={() => endPress("right")}
@@ -820,16 +847,28 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             }}
             onTouchStart={startPress}
             onTouchEnd={() => endPress("right")}
-            className="w-1/2 h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
-            title="Click right for next story, hold to pause"
+            className="w-[30%] h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
+            title="Single tap right: Next story • Hold: Pause"
           />
         </div>
 
+        {/* Center Pause/Play feedback toast */}
+        {pauseToast && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-md border border-white/20 text-white text-sm font-bold shadow-2xl flex items-center gap-2.5 animate-in zoom-in-90 duration-150 pointer-events-none">
+            {pauseToast.includes("Paused") ? (
+              <Pause className="w-5 h-5 fill-amber-400 text-amber-400" />
+            ) : (
+              <Play className="w-5 h-5 fill-cyan-400 text-cyan-400" />
+            )}
+            <span>{pauseToast}</span>
+          </div>
+        )}
+
         {/* Hold to Pause Indicator */}
         {isHolding && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-2xl animate-pulse pointer-events-none">
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 rounded-full bg-black/85 backdrop-blur-md border border-amber-400/50 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-2xl animate-pulse pointer-events-none">
             <Pause className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span>Story Paused</span>
+            <span>Holding: Story Paused</span>
           </div>
         )}
 
@@ -871,15 +910,27 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               <img
                 src={currentStory.userAvatar}
                 alt={currentStory.userName}
-                className="w-9 h-9 rounded-full border-2 border-cyan-400 object-cover shadow-md shadow-cyan-400/20"
+                className={`w-9 h-9 rounded-full object-cover shadow-md ${
+                  currentStory.isCloseFriendsOnly
+                    ? "border-2 border-emerald-400 ring-2 ring-emerald-500/40 shadow-emerald-500/30"
+                    : "border-2 border-cyan-400 shadow-cyan-400/20"
+                }`}
               />
               <div className="flex flex-col">
-                <span className="text-xs font-bold text-white group-hover:text-cyan-400 transition-colors flex items-center gap-1">
-                  <span>{currentStory.userName}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-white group-hover:text-cyan-400 transition-colors">
+                    {currentStory.userName}
+                  </span>
+                  {currentStory.isCloseFriendsOnly && (
+                    <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 text-slate-950 font-black text-[9px] flex items-center gap-0.5 shadow-sm">
+                      <Star className="w-2.5 h-2.5 fill-slate-950 text-slate-950" />
+                      <span>Close Friends</span>
+                    </span>
+                  )}
                   {currentStory.isEdited && (
                     <span className="text-[9px] text-slate-400 font-normal">(edited)</span>
                   )}
-                </span>
+                </div>
                 <span className="text-[10px] text-slate-300">
                   {new Date(currentStory.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
@@ -1049,9 +1100,31 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               </button>
             </div>
 
+            {/* Dedicated Manual Like Button */}
+            <button
+              onClick={() => handleReact("❤️")}
+              className={`px-3 py-1.5 rounded-full font-bold text-xs border active:scale-90 flex items-center gap-1.5 transition-all shrink-0 ${
+                currentStory.reactions?.["❤️"]?.includes(currentUser.id)
+                  ? "bg-red-500/25 border-red-500/60 text-red-400 shadow-md shadow-red-500/30 scale-105"
+                  : "bg-black/60 hover:bg-black/80 border-white/15 text-white"
+              }`}
+              title="Like story"
+            >
+              <Heart
+                className={`w-3.5 h-3.5 transition-transform ${
+                  currentStory.reactions?.["❤️"]?.includes(currentUser.id)
+                    ? "fill-red-500 text-red-500 scale-110"
+                    : "text-slate-300 hover:text-red-400"
+                }`}
+              />
+              <span className="text-[11px] font-bold">
+                {(currentStory.reactions && currentStory.reactions["❤️"]?.length) || 0}
+              </span>
+            </button>
+
             <button
               onClick={() => setShowComments(true)}
-              className="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-white/10 active:scale-95 flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-white/10 active:scale-95 flex items-center gap-1.5 transition-all shrink-0"
               title="View & post comments"
             >
               <MessageCircle className="w-3.5 h-3.5 text-cyan-400" />

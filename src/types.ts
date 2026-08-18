@@ -9,6 +9,7 @@ export interface User {
   createdAt: string;
   badges?: string[];
   blockedUserIds?: string[];
+  closeFriendsUserIds?: string[]; // User IDs in user's Close Friends list
   isPrivate?: boolean;
   hideEmail?: boolean;
 }
@@ -318,6 +319,7 @@ export interface Story {
   textStyle?: StoryTextStyle;
   caption?: string;
   captionPosition?: { x: number; y: number };
+  isCloseFriendsOnly?: boolean; // When true, only users in creator's closeFriendsUserIds list can view (green ring badge)
   disableSharing?: boolean; // When true, recipients cannot forward/share story to chats
   hiddenFromUserIds?: string[]; // Specific users hidden from viewing this story
   montage?: StoryMediaMontage;
