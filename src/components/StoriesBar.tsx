@@ -1,11 +1,12 @@
 import React from "react";
-import { User, Story } from "../types";
-import { Plus, Sparkles, Image as ImageIcon, Video, Type } from "lucide-react";
+import { User, Story, Conversation } from "../types";
+import { Plus, Sparkles, Image as ImageIcon, Video, Type, Lock } from "lucide-react";
 
 interface StoriesBarProps {
   currentUser: User;
   allUsers: User[];
   stories: Story[];
+  conversations?: Conversation[];
   onOpenCreator: () => void;
   onOpenStoryViewer: (targetUserId: string, initialStoryIndex?: number) => void;
   className?: string;
@@ -15,6 +16,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   currentUser,
   allUsers,
   stories,
+  conversations = [],
   onOpenCreator,
   onOpenStoryViewer,
   className = ""
@@ -22,22 +24,42 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   // Group stories by userId
   const myStories = stories.filter((s) => s.userId === currentUser.id);
 
-  // Group stories for other users
+  // Group stories for other users, respecting privacy & user hide lists
   const userStoryMap = new Map<string, { user: User; stories: Story[]; hasUnviewed: boolean }>();
 
   stories.forEach((story) => {
     if (story.userId === currentUser.id) return;
+
+    // Check if story is hidden from current user
+    if (story.hiddenFromUserIds && story.hiddenFromUserIds.includes(currentUser.id)) {
+      return;
+    }
+
+    const userObj = allUsers.find((u) => u.id === story.userId) || {
+      id: story.userId,
+      username: story.userName,
+      avatar: story.userAvatar,
+      email: "",
+      status: "online",
+      isPrivate: false,
+      createdAt: story.createdAt
+    };
+
+    // If profile is private, check if they share a direct conversation/contact
+    if (userObj.isPrivate) {
+      const isDirectContact = conversations.some(
+        (c) =>
+          c.type === "dm" &&
+          c.participants.includes(currentUser.id) &&
+          c.participants.includes(story.userId)
+      );
+      if (!isDirectContact) {
+        return; // Private profile story not accessible
+      }
+    }
     
     let entry = userStoryMap.get(story.userId);
     if (!entry) {
-      const userObj = allUsers.find((u) => u.id === story.userId) || {
-        id: story.userId,
-        username: story.userName,
-        avatar: story.userAvatar,
-        email: "",
-        status: "online",
-        createdAt: story.createdAt
-      };
       entry = { user: userObj, stories: [], hasUnviewed: false };
       userStoryMap.set(story.userId, entry);
     }

@@ -317,6 +317,9 @@ export interface Story {
   textContent?: string;
   textStyle?: StoryTextStyle;
   caption?: string;
+  captionPosition?: { x: number; y: number };
+  disableSharing?: boolean; // When true, recipients cannot forward/share story to chats
+  hiddenFromUserIds?: string[]; // Specific users hidden from viewing this story
   montage?: StoryMediaMontage;
   tags?: StoryTag[];
   location?: string;

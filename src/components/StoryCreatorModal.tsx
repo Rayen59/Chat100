@@ -36,7 +36,10 @@ import {
   HelpCircle,
   Lock,
   MessageCircle,
-  HeartHandshake
+  HeartHandshake,
+  EyeOff,
+  Shield,
+  Move
 } from "lucide-react";
 
 interface StoryCreatorModalProps {
@@ -253,6 +256,17 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
 
   // Tags & Metadata
   const [caption, setCaption] = useState<string>(storyToEdit?.caption || "");
+  const [captionPosition, setCaptionPosition] = useState<{ x: number; y: number }>(
+    storyToEdit?.captionPosition || { x: 50, y: 84 }
+  );
+  const [disableSharing, setDisableSharing] = useState<boolean>(
+    storyToEdit?.disableSharing || false
+  );
+  const [hiddenFromUserIds, setHiddenFromUserIds] = useState<string[]>(
+    storyToEdit?.hiddenFromUserIds || []
+  );
+  const [hideSearch, setHideSearch] = useState("");
+
   const [tags, setTags] = useState<StoryTag[]>(storyToEdit?.tags || []);
   const [locationTag, setLocationTag] = useState<string>(storyToEdit?.location || "");
   const [customLocationInput, setCustomLocationInput] = useState("");
@@ -261,7 +275,41 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
   const [hashtagInput, setHashtagInput] = useState("");
 
   // Sub-tabs in creator studio
-  const [studioTab, setStudioTab] = useState<"gallery" | "templates" | "ngl" | "filters" | "adjust" | "stickers" | "draw" | "tags" | "video">("gallery");
+  const [studioTab, setStudioTab] = useState<"gallery" | "templates" | "ngl" | "filters" | "adjust" | "stickers" | "draw" | "tags" | "video" | "privacy">("gallery");
+
+  // Dragging active target on phone preview canvas
+  const phonePreviewRef = useRef<HTMLDivElement>(null);
+  const [dragTarget, setDragTarget] = useState<{ type: "caption" | "textOverlay" | "sticker"; id?: string } | null>(null);
+
+  const handlePointerDown = (type: "caption" | "textOverlay" | "sticker", id?: string, e?: React.PointerEvent | React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setDragTarget({ type, id });
+  };
+
+  const handleCanvasMove = (clientX: number, clientY: number) => {
+    if (!dragTarget || !phonePreviewRef.current) return;
+    const rect = phonePreviewRef.current.getBoundingClientRect();
+    const x = Math.max(8, Math.min(92, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(8, Math.min(92, ((clientY - rect.top) / rect.height) * 100));
+
+    if (dragTarget.type === "caption") {
+      setCaptionPosition({ x, y });
+    } else if (dragTarget.type === "textOverlay" && dragTarget.id) {
+      setTextOverlays((prev) =>
+        prev.map((t) => (t.id === dragTarget.id ? { ...t, x, y } : t))
+      );
+    } else if (dragTarget.type === "sticker" && dragTarget.id) {
+      setStickers((prev) =>
+        prev.map((s) => (s.id === dragTarget.id ? { ...s, x, y } : s))
+      );
+    }
+  };
+
+  const handleCanvasRelease = () => {
+    setDragTarget(null);
+  };
 
   // Tag friend picker
   const [showFriendPicker, setShowFriendPicker] = useState(false);
@@ -604,6 +652,9 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
           body: JSON.stringify({
             userId: currentUser.id,
             caption,
+            captionPosition,
+            disableSharing,
+            hiddenFromUserIds,
             textContent: mode === "text" ? textContent : undefined,
             textStyle: textStyleData,
             tags,
@@ -636,6 +687,9 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
             textStyle: textStyleData,
             anonymousPrompt: anonymousPromptData,
             caption,
+            captionPosition,
+            disableSharing,
+            hiddenFromUserIds,
             montage: montageData,
             tags,
             location: locationTag,
@@ -841,9 +895,19 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
             {/* 9:16 Aspect Ratio Phone Stage */}
             <div
               id="story-phone-preview"
+              ref={phonePreviewRef}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
-              className="w-[260px] sm:w-[280px] h-[460px] sm:h-[500px] rounded-[32px] overflow-hidden relative shadow-2xl border-4 border-slate-800/80 flex flex-col justify-between"
+              onPointerMove={(e) => handleCanvasMove(e.clientX, e.clientY)}
+              onPointerUp={handleCanvasRelease}
+              onPointerLeave={handleCanvasRelease}
+              onTouchMove={(e) => {
+                if (e.touches.length > 0) {
+                  handleCanvasMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
+              }}
+              onTouchEnd={handleCanvasRelease}
+              className="w-[260px] sm:w-[280px] h-[460px] sm:h-[500px] rounded-[32px] overflow-hidden relative shadow-2xl border-4 border-slate-800/80 flex flex-col justify-between select-none"
               style={{
                 background:
                   mode === "text"
@@ -957,31 +1021,39 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                 }`}
               />
 
-              {/* Stickers & Emojis Overlays */}
+              {/* Stickers & Emojis Overlays (Draggable) */}
               {stickers.map((stk) => (
                 <div
                   key={stk.id}
+                  onPointerDown={(e) => handlePointerDown("sticker", stk.id, e)}
+                  onTouchStart={(e) => handlePointerDown("sticker", stk.id, e)}
                   style={{
                     left: `${stk.x}%`,
                     top: `${stk.y}%`,
                     transform: `translate(-50%, -50%) scale(${stk.scale}) rotate(${stk.rotation}deg)`
                   }}
-                  className="absolute z-20 text-3xl select-none cursor-move group/stk drop-shadow-lg"
+                  className="absolute z-20 text-3xl select-none cursor-grab active:cursor-grabbing group/stk drop-shadow-lg"
+                  title="Drag to move sticker"
                 >
                   <span>{stk.emoji}</span>
                   <button
-                    onClick={() => handleRemoveSticker(stk.id)}
-                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover/stk:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveSticker(stk.id);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover/stk:opacity-100 transition-opacity cursor-pointer"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
                 </div>
               ))}
 
-              {/* Text Overlays */}
+              {/* Text Overlays (Draggable) */}
               {textOverlays.map((txt) => (
                 <div
                   key={txt.id}
+                  onPointerDown={(e) => handlePointerDown("textOverlay", txt.id, e)}
+                  onTouchStart={(e) => handlePointerDown("textOverlay", txt.id, e)}
                   style={{
                     left: `${txt.x}%`,
                     top: `${txt.y}%`,
@@ -989,20 +1061,46 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                     color: txt.color,
                     backgroundColor: txt.background
                   }}
-                  className="absolute z-20 px-3 py-1.5 rounded-xl text-sm font-bold shadow-md cursor-move group/txt select-none"
+                  className="absolute z-20 px-3 py-1.5 rounded-xl text-sm font-bold shadow-md cursor-grab active:cursor-grabbing group/txt select-none border border-transparent hover:border-cyan-400/60 transition-all"
+                  title="Drag to move text overlay"
                 >
                   <span>{txt.text}</span>
                   <button
-                    onClick={() => handleRemoveTextOverlay(txt.id)}
-                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover/txt:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveTextOverlay(txt.id);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover/txt:opacity-100 transition-opacity cursor-pointer"
                   >
                     <X className="w-2.5 h-2.5" />
                   </button>
                 </div>
               ))}
 
+              {/* Draggable Caption Overlay */}
+              {caption && (
+                <div
+                  onPointerDown={(e) => handlePointerDown("caption", undefined, e)}
+                  onTouchStart={(e) => handlePointerDown("caption", undefined, e)}
+                  style={{
+                    left: `${captionPosition.x}%`,
+                    top: `${captionPosition.y}%`,
+                    transform: "translate(-50%, -50%)"
+                  }}
+                  className="absolute z-30 max-w-[85%] px-3 py-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-white/20 text-xs font-semibold text-white shadow-xl cursor-grab active:cursor-grabbing hover:border-cyan-400 select-none group/cap transition-all"
+                  title="Drag to position your caption anywhere on the story"
+                >
+                  <p className="line-clamp-3 text-center leading-snug break-words">
+                    {caption}
+                  </p>
+                  <span className="opacity-0 group-hover/cap:opacity-100 text-[9px] text-cyan-300 text-center font-normal block mt-0.5">
+                    ✋ Drag to reposition
+                  </span>
+                </div>
+              )}
+
               {/* Top Bar Preview */}
-              <div className="relative z-30 p-3 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
+              <div className="relative z-30 p-3 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
                 <div className="flex items-center gap-2">
                   <img
                     src={currentUser.avatar}
@@ -1021,7 +1119,7 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
               </div>
 
               {/* Bottom Tags & Music Overlay Preview */}
-              <div className="relative z-30 p-3 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+              <div className="relative z-30 p-3 flex flex-col gap-1 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none">
                 {musicTitle && (
                   <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-medium truncate">
                     <Music className="w-3 h-3 text-amber-400 shrink-0 animate-bounce" />
@@ -1040,12 +1138,6 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                       </span>
                     ))}
                   </div>
-                )}
-
-                {caption && (
-                  <p className="text-xs text-white/90 font-medium line-clamp-2 drop-shadow-sm">
-                    {caption}
-                  </p>
                 )}
               </div>
 
@@ -1286,6 +1378,18 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
               >
                 <AtSign className="w-3.5 h-3.5" />
                 <span>Tags & Music</span>
+              </button>
+
+              <button
+                onClick={() => setStudioTab("privacy")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors ${
+                  studioTab === "privacy"
+                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Privacy & Hide</span>
               </button>
             </div>
 
@@ -2155,6 +2259,114 @@ export const StoryCreatorModal: React.FC<StoryCreatorModalProps> = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB: PRIVACY & AUDIENCE CONTROLS */}
+              {studioTab === "privacy" && (
+                <div className="flex flex-col gap-4 animate-in fade-in">
+                  <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-white">
+                            Disable Story Sharing in Chats
+                          </h4>
+                          <p className="text-[11px] text-slate-400 leading-snug">
+                            When enabled, other users cannot forward or send your story into direct or group chats.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDisableSharing(!disableSharing)}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                          disableSharing ? "bg-amber-500" : "bg-slate-700"
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
+                            disableSharing ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hide from specific users */}
+                  <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-cyan-400">
+                      <EyeOff className="w-4 h-4" />
+                      <h4 className="text-xs font-bold text-white">
+                        Hide Story from Specific Users ({hiddenFromUserIds.length})
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Selected contacts will not be able to view this story anywhere in their feed or profile.
+                    </p>
+
+                    <input
+                      type="text"
+                      value={hideSearch}
+                      onChange={(e) => setHideSearch(e.target.value)}
+                      placeholder="Search users to hide this story from..."
+                      className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-400"
+                    />
+
+                    <div className="max-h-48 overflow-y-auto flex flex-col gap-1.5 pr-1">
+                      {allUsers
+                        .filter((u) => u.id !== currentUser.id)
+                        .filter(
+                          (u) =>
+                            u.username.toLowerCase().includes(hideSearch.toLowerCase()) ||
+                            (u.name && u.name.toLowerCase().includes(hideSearch.toLowerCase()))
+                        )
+                        .map((u) => {
+                          const isHidden = hiddenFromUserIds.includes(u.id);
+                          return (
+                            <div
+                              key={u.id}
+                              onClick={() => {
+                                if (isHidden) {
+                                  setHiddenFromUserIds(hiddenFromUserIds.filter((id) => id !== u.id));
+                                } else {
+                                  setHiddenFromUserIds([...hiddenFromUserIds, u.id]);
+                                }
+                              }}
+                              className={`p-2 rounded-xl flex items-center justify-between cursor-pointer border transition-colors ${
+                                isHidden
+                                  ? "bg-red-500/10 border-red-500/40 text-red-300"
+                                  : "bg-slate-950/60 border-slate-800/80 text-slate-300 hover:border-slate-700"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={u.avatar}
+                                  alt={u.username}
+                                  className="w-6 h-6 rounded-full object-cover border border-white/10"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-semibold">{u.username}</span>
+                                  {u.name && <span className="text-[10px] text-slate-400">{u.name}</span>}
+                                </div>
+                              </div>
+                              <div
+                                className={`w-4 h-4 rounded-md border flex items-center justify-center ${
+                                  isHidden
+                                    ? "bg-red-500 border-red-400 text-white"
+                                    : "border-slate-600 bg-slate-800"
+                                }`}
+                              >
+                                {isHidden && <Check className="w-3 h-3" />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
                 </div>
               )}
 

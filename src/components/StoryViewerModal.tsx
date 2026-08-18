@@ -172,6 +172,9 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   // Track elapsed time across pauses
   const elapsedBeforePauseRef = useRef<number>(0);
   const isHoldingRef = useRef<boolean>(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pressStartTimeRef = useRef<number>(0);
+  const isLongPressRef = useRef<boolean>(false);
 
   // Navigation handlers
   const handlePrevSlide = () => {
@@ -196,6 +199,40 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
       setCurrentSlideIndex(0);
     } else {
       onClose();
+    }
+  };
+
+  const startPress = () => {
+    pressStartTimeRef.current = Date.now();
+    isLongPressRef.current = false;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      setIsHolding(true);
+      isHoldingRef.current = true;
+    }, 180);
+  };
+
+  const endPress = (side: "left" | "right") => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    const pressDuration = Date.now() - pressStartTimeRef.current;
+    setIsHolding(false);
+    isHoldingRef.current = false;
+
+    // If held for >= 180ms or flagged as long press, pause occurred - do not jump to next/prev slide
+    if (isLongPressRef.current || pressDuration >= 180) {
+      isLongPressRef.current = false;
+      return;
+    }
+
+    // Quick tap: left = previous story, right = next story
+    if (side === "left") {
+      handlePrevSlide();
+    } else {
+      handleNextSlide();
     }
   };
 
@@ -722,6 +759,20 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
           </div>
         ))}
 
+        {/* Positioned Story Caption Overlay */}
+        {currentStory.caption && currentStory.captionPosition && (
+          <div
+            style={{
+              left: `${currentStory.captionPosition.x}%`,
+              top: `${currentStory.captionPosition.y}%`,
+              transform: "translate(-50%, -50%)"
+            }}
+            className="absolute z-20 max-w-[85%] px-3.5 py-1.5 rounded-2xl bg-black/70 backdrop-blur-md border border-white/20 text-xs sm:text-sm font-semibold text-white shadow-2xl pointer-events-none select-none text-center"
+          >
+            {currentStory.caption}
+          </div>
+        )}
+
         {/* Text Overlays */}
         {montage?.textOverlays?.map((txt) => (
           <div
@@ -740,50 +791,47 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         ))}
 
         {/* ==================================================== */}
-        {/* INTERACTIVE TAP ZONES (Left 50% = Prev, Right 50% = Next) */}
+        {/* INTERACTIVE TAP ZONES (Left = Prev, Right = Next, Hold = Pause) */}
         {/* ==================================================== */}
-        <div className="absolute inset-0 flex z-10">
-          {/* Left Zone: Click to go to previous story */}
+        <div className="absolute inset-0 flex z-10 select-none">
+          {/* Left Zone: Click for previous story, Hold to Pause */}
           <div
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePrevSlide();
+            onMouseDown={startPress}
+            onMouseUp={() => endPress("left")}
+            onMouseLeave={() => {
+              if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+              setIsHolding(false);
+              isHoldingRef.current = false;
             }}
-            onMouseDown={() => setIsHolding(true)}
-            onMouseUp={() => setIsHolding(false)}
-            onTouchStart={() => setIsHolding(true)}
-            onTouchEnd={() => setIsHolding(false)}
+            onTouchStart={startPress}
+            onTouchEnd={() => endPress("left")}
             className="w-1/2 h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
-            title="Click left to go to previous story"
+            title="Click left for previous story, hold to pause"
           />
 
-          {/* Right Zone: Click or Right-click to go to next story */}
+          {/* Right Zone: Click for next story, Hold to Pause */}
           <div
-            onClick={(e) => {
-              e.stopPropagation();
-              handleNextSlide();
+            onMouseDown={startPress}
+            onMouseUp={() => endPress("right")}
+            onMouseLeave={() => {
+              if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+              setIsHolding(false);
+              isHoldingRef.current = false;
             }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleNextSlide();
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 2) {
-                e.preventDefault();
-                e.stopPropagation();
-                handleNextSlide();
-                return;
-              }
-              setIsHolding(true);
-            }}
-            onMouseUp={() => setIsHolding(false)}
-            onTouchStart={() => setIsHolding(true)}
-            onTouchEnd={() => setIsHolding(false)}
+            onTouchStart={startPress}
+            onTouchEnd={() => endPress("right")}
             className="w-1/2 h-full cursor-pointer hover:bg-white/[0.02] transition-colors"
-            title="Click or right-click to advance to next story"
+            title="Click right for next story, hold to pause"
           />
         </div>
+
+        {/* Hold to Pause Indicator */}
+        {isHolding && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-3.5 py-1.5 rounded-full bg-black/80 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-2xl animate-pulse pointer-events-none">
+            <Pause className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span>Story Paused</span>
+          </div>
+        )}
 
         {/* ==================================================== */}
         {/* 2. TOP PROGRESS BARS & HEADER */}
@@ -840,18 +888,28 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
             {/* Top Right Action Controls */}
             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {/* Prominent Share Story Button in Top Header */}
-              <button
-                onClick={() => {
-                  setShowShareModal(true);
-                  setIsPaused(true);
-                }}
-                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/30 active:scale-95 transition-all flex items-center gap-1.5"
-                title="Share this story to your chats or copy link"
-              >
-                <Share2 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-                <span className="text-slate-950 font-black">Share</span>
-              </button>
+              {/* Share Story Button or Sharing Disabled Lock Badge */}
+              {currentStory.disableSharing && !isCreator ? (
+                <div
+                  className="px-2.5 py-1.5 rounded-full bg-black/60 border border-slate-700/80 text-slate-400 text-[11px] font-medium flex items-center gap-1 shadow-sm"
+                  title="Story sharing is disabled by author"
+                >
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  <span className="hidden sm:inline">Sharing disabled</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setShowShareModal(true);
+                    setIsPaused(true);
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/30 active:scale-95 transition-all flex items-center gap-1.5"
+                  title="Share this story to your chats or copy link"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                  <span className="text-slate-950 font-black">Share</span>
+                </button>
+              )}
 
               {/* Video Mute Toggle */}
               {currentStory.type === "video" && (
@@ -938,8 +996,8 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             ))}
           </div>
 
-          {/* Story Caption */}
-          {currentStory.caption && (
+          {/* Story Caption (if not positioned) */}
+          {currentStory.caption && !currentStory.captionPosition && (
             <p className="text-sm font-medium text-white/95 leading-snug drop-shadow-md">
               {currentStory.caption}
             </p>
@@ -1000,17 +1058,27 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               <span>{currentStory.comments?.length || 0}</span>
             </button>
 
-            <button
-              onClick={() => {
-                setShowShareModal(true);
-                setIsPaused(true);
-              }}
-              className="px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/30 active:scale-95 flex items-center gap-1.5 transition-all"
-              title="Share story to chats & friends"
-            >
-              <Share2 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
-              <span className="font-black">Share</span>
-            </button>
+            {currentStory.disableSharing && !isCreator ? (
+              <div
+                className="px-2.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-slate-400 text-xs font-medium flex items-center gap-1 shadow-sm"
+                title="Story author disabled sharing"
+              >
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                <span className="hidden sm:inline">Locked</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowShareModal(true);
+                  setIsPaused(true);
+                }}
+                className="px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/30 active:scale-95 flex items-center gap-1.5 transition-all"
+                title="Share story to chats & friends"
+              >
+                <Share2 className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                <span className="font-black">Share</span>
+              </button>
+            )}
           </div>
         </div>
 

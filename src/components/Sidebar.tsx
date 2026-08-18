@@ -230,6 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         currentUser={currentUser}
         allUsers={allUsers}
         stories={stories}
+        conversations={conversations}
         onOpenCreator={onOpenStoryCreator}
         onOpenStoryViewer={onOpenStoryViewer}
       />
